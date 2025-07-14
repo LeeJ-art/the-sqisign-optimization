@@ -92,12 +92,13 @@ fp2_neg(fp2_t *x, const fp2_t *y)
 }
 
 void
-fp2_mul(fp2_t *x, const fp2_t *y, const fp2_t *z)
+fp2_mul(fp2_t *x, const fp2_t *y, const fp2_t *z) /* F_{p^2} */
 {
-    fp_t t0, t1;
-
+    fp_t t0, t1; /* gf(5* 2^248 - 1) */
+    /* real, image */
     fp_add(&t0, &(y->re), &(y->im));
     fp_add(&t1, &(z->re), &(z->im));
+    
     fp_mul(&t0, &t0, &t1);
     fp_mul(&t1, &(y->im), &(z->im));
     fp_mul(&(x->re), &(y->re), &(z->re));

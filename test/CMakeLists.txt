@@ -11,7 +11,7 @@ FOREACH(SVARIANT ${SVARIANT_S})
     add_test(sqisign_${SVARIANT}_KAT sqisign_test_kat_${SVARIANT})
 
     if (ENABLE_SIGN)
-
+        #test_sqisign.c is compiled to an executable file named sqisign_test_scheme_${SVARIANT} 
         add_executable(sqisign_test_scheme_${SVARIANT} test_sqisign.c)
         target_link_libraries(sqisign_test_scheme_${SVARIANT} sqisign_${SVARIANT_LOWER})
         target_include_directories(sqisign_test_scheme_${SVARIANT} PUBLIC ${PROJECT_SOURCE_DIR}/src/common ${INC_PUBLIC} ${PROJECT_SOURCE_DIR}/src/nistapi/${SVARIANT_LOWER})

@@ -51,6 +51,11 @@ void secret_key_finalize(secret_key_t *sk);
  * @returns 1 if success, 0 otherwise
  */
 int protocols_keygen(public_key_t *pk, secret_key_t *sk);
+int protocols_keygen_p1(public_key_t *pk, secret_key_t *sk, ec_basis_t *B_0_two);
+int protocols_keygen_p11(secret_key_t *sk, ec_basis_t *B_0_two, int found);
+int protocols_keygen_p12(secret_key_t *sk, ec_basis_t *B_0_two, int found);
+int protocols_keygen_p13(secret_key_t *sk, ec_basis_t *B_0_two, int found);
+void protocols_keygen_p2(public_key_t *pk, secret_key_t *sk, ec_basis_t *B_0_two);
 
 /**
  * @brief Signature computation
@@ -62,7 +67,10 @@ int protocols_keygen(public_key_t *pk, secret_key_t *sk);
  * @param l size
  * @returns 1 if success, 0 otherwise
  */
-int protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l);
+int protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l, uint64_t* ttime);
+
+// int protocols_sign_p1(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l);
+// void protocols_sign_p2(signature_t *sig, theta_couple_curve_with_basis_t *Eaux2_Echall2, ec_curve_t *E_chall, int reduced_order, quat_alg_elem_t *resp_quat, quat_left_ideal_t *lideal_commit, quat_left_ideal_t *lideal_com_resp, ibz_t *lattice_content, ibz_t *remain, ibz_t *degree_resp_inv, ibz_t *random_aux_norm);
 
 /*************************** Encoding *****************************/
 

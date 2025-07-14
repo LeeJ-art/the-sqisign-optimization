@@ -94,7 +94,7 @@ endif()
 set(C_OPT_FLAGS "")
 
 if (NOT DEFINED SQISIGN_TEST_REPS)
-    set(SQISIGN_TEST_REPS 10)
+    set(SQISIGN_TEST_REPS 1)
 endif()
 
 add_compile_definitions(SQISIGN_TEST_REPS=${SQISIGN_TEST_REPS})

@@ -100,6 +100,7 @@ fp_sub:
 // Temps:  regs T0:T1
 /////////////////////////////////////////////////////////////////
 .macro MULADD64x256 M1, Z0, Z1, Z2, Z3, Z4, T0, T1, C
+    // /*  */
     mulx   \T0, \T1, \M1     // A0*B0
     xor    \C, \C
     adox   \Z0, \T1
@@ -288,7 +289,7 @@ fp2_mul_c1:
 .macro FPMUL256x256 M0, M1, Z0, Z1, Z2, Z3, Z4, T0, T1           
     // [Z1:Z4] <- z = (z0 x p_plus_1 + z)/2^64
     mov    rdx, \Z0                 // rdx <- z0
-    MULADD64x64 [rip+p_plus_1+24], \Z1, \Z2, \Z3, \Z4, \T0, \T1
+    MULADD64x64 [rip+p_plus_1+24], \Z1, \Z2, \Z3, \Z4, \T0, \T1 /*r8 x (5x2^248)*/
     
     // [Z1:Z4, Z0] <- z = a01 x a1 + z 
     mov    rdx, 8\M0
@@ -310,6 +311,7 @@ fp2_mul_c1:
     // [Z4, Z0:Z2] <- z = (z0 x p_plus_1 + z)/2^64
     mov    rdx, \Z3                // rdx <- z0
     MULADD64x64 [rip+p_plus_1+24], \Z4, \Z0, \Z1, \Z2, \T0, \T1
+
 .endm
 
 //***********************************************************************
@@ -438,8 +440,8 @@ fp_mul:
     mov    rcx, rdx 
      
     // [r8:r12] <- z = a x b0
-    mov    rdx, [rcx]
-    mulx   r9, r8, [rsi]
+    mov    rdx, [rcx]    /* b0 */
+    mulx   r9, r8, [rsi] /*[rsi] x [rdx]*/
     xor    rax, rax 
     mulx   r10, r11, [rsi+8]
     adox   r9, r11        
@@ -449,6 +451,13 @@ fp_mul:
     adox   r11, r13
     adox   r12, rax 
 
+    /*
+                    r9 r8
+              r10  r11
+         r11  r12
+    r12  r13
+    r12  r11  r10   r9 r8
+    */
 	FPMUL256x256 [rcx], [rsi], r8, r9, r10, r11, r12, r13, r14
 
     mov    [rdi], r12        

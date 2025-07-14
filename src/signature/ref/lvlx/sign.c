@@ -5,6 +5,15 @@
 #include <torsion_constants.h>
 #include <encoded_sizes.h>
 
+#include <stdio.h>
+#include <bench.h>
+
+static __inline__ uint64_t
+rdtsc(void)
+{
+    return (uint64_t)cpucycles();
+}
+
 // compute the commitment with ideal to isogeny clapotis
 // and apply it to the basis of E0 (together with the multiplication by some scalar u)
 static bool
@@ -193,8 +202,10 @@ static int
 evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
                                       ec_basis_t *B_aux,
                                       const ibz_t *norm,
-                                      const quat_left_ideal_t *lideal_com_resp)
+                                      const quat_left_ideal_t *lideal_com_resp, uint64_t *ttime)
 {
+    uint64_t t0 = rdtsc();
+    
     quat_left_ideal_t lideal_aux;
     quat_left_ideal_t lideal_aux_resp_com;
 
@@ -202,9 +213,15 @@ evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
     quat_left_ideal_init(&lideal_aux);
     quat_left_ideal_init(&lideal_aux_resp_com);
 
+    ttime[4] += rdtsc() - t0;
+    t0 = rdtsc();
+
     // sampling the ideal at random
     int found = quat_sampling_random_ideal_O0_given_norm(
         &lideal_aux, norm, 0, &QUAT_represent_integer_params, &QUAT_prime_cofactor);
+    
+    ttime[5] += rdtsc() - t0;
+    t0 = rdtsc();
 
     if (found) {
         // pushing forward
@@ -217,6 +234,8 @@ evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
         quat_left_ideal_finalize(&lideal_aux_resp_com);
         quat_left_ideal_finalize(&lideal_aux);
     }
+
+    ttime[4] += rdtsc() - t0;
 
     return found;
 }
@@ -475,8 +494,9 @@ compute_and_set_basis_change_matrix(signature_t *sig,
     ibz_mat_2x2_finalize(&mat_Baux2_to_Baux2_can);
 }
 
+__attribute__((noinline)) 
 int
-protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l)
+protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l, uint64_t* ttime)
 {
     int ret = 0;
     int reduced_order = 0; // work around false positive gcc warning
@@ -510,6 +530,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
     ec_curve_init(&Ecom_Eaux.E1);
     ec_curve_init(&Ecom_Eaux.E2);
 
+    uint64_t t0 = rdtsc();
+
     while (!ret) {
 
         // computing the commitment
@@ -517,12 +539,21 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
 
         // start again if the commitment generation has failed
         if (!ret) {
+            ttime[0] += rdtsc() - t0;
+            t0 = rdtsc();
             continue;
         }
+
+        ttime[0] += rdtsc() - t0;
+        t0 = rdtsc();
 
         // Hash the message to a kernel generator
         // i.e. a scalar such that ker = P + [s]Q
         hash_to_challenge(&sig->chall_coeff, pk, &Ecom_Eaux.E1, m, l);
+
+        ttime[1] += rdtsc() - t0;
+        t0 = rdtsc();        
+        
         // Compute the challenge ideal and response quaternion element
         {
             quat_left_ideal_t lideal_chall_two;
@@ -539,6 +570,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
         // computing the amount of backtracking we're making
         // and removing it
         compute_backtracking_signature(sig, &resp_quat, &lattice_content, &remain);
+
+        
 
         // creating lideal_com * lideal_resp
         // we first compute the norm of lideal_resp
@@ -558,14 +591,19 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
         // B_aux = image through aux_resp_com isogeny (odd degree) of canonical basis of E0
 
         if (pow_dim2_deg_resp > 0) {
+
             // Evaluate the random aux ideal on the curve E0 and its basis to find E_aux and B_aux
             ret =
-                evaluate_random_aux_isogeny_signature(&Ecom_Eaux.E2, &Ecom_Eaux.B2, &random_aux_norm, &lideal_com_resp);
+                evaluate_random_aux_isogeny_signature(&Ecom_Eaux.E2, &Ecom_Eaux.B2, &random_aux_norm, &lideal_com_resp, ttime);
 
             // auxiliary isogeny computation failed we must start again
             if (!ret) {
+                ttime[2] += rdtsc() - t0;
+                t0 = rdtsc();
                 continue;
             }
+
+        
 
 #ifndef NDEBUG
             // testing that the order of the points in the bases is as expected
@@ -588,8 +626,14 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
             // B_chall_2 on E_chall_2
             ret = compute_dim2_isogeny_challenge(
                 &Eaux2_Echall2, &Ecom_Eaux, &degree_resp_inv, pow_dim2_deg_resp, sig->two_resp_length, reduced_order);
-            if (!ret)
+                if (!ret){
+                ttime[2] += rdtsc() - t0;
+                t0 = rdtsc();
                 continue;
+            }
+
+            
+
         } else {
             // No 2d isogeny needed, so simulate a "Kani matrix" identity here
             copy_curve(&Eaux2_Echall2.E1, &Ecom_Eaux.E1);
@@ -612,6 +656,9 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
         // computation of the challenge codomain
         if (!compute_challenge_codomain_signature(sig, sk, &E_chall, &Eaux2_Echall2.E2, &Eaux2_Echall2.B2))
             assert(0); // this shouldn't fail
+
+        ttime[2] += rdtsc() - t0;
+        t0 = rdtsc();
     }
 
     // Set to the signature the Montgomery A-coefficient of E_aux_2
@@ -629,6 +676,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
     ibz_finalize(&remain);
     ibz_finalize(&degree_resp_inv);
     ibz_finalize(&random_aux_norm);
+
+    ttime[3] += rdtsc() - t0;
 
     return ret;
 }

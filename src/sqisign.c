@@ -36,12 +36,16 @@ sqisign_sign(unsigned char *sm,
     secret_key_t skt;
     public_key_t pkt = { 0 };
     signature_t sigt;
+
+    uint64_t ttime[2] = {0};
+
     secret_key_init(&skt);
     secret_key_from_bytes(&skt, &pkt, sk);
 
     memmove(sm + SIGNATURE_BYTES, m, mlen);
+    
 
-    ret = !protocols_sign(&sigt, &pkt, &skt, sm + SIGNATURE_BYTES, mlen);
+    ret = !protocols_sign(&sigt, &pkt, &skt, sm + SIGNATURE_BYTES, mlen, ttime);
     if (ret != 0) {
         *smlen = 0;
         goto err;

@@ -1,3 +1,4 @@
+#call common/CMakeLists.txt
 add_subdirectory(common)
 
 if(ENABLE_SIGN)
@@ -16,12 +17,16 @@ if(ENABLE_SIGN)
     add_subdirectory(signature)
 endif()
 
+#${SVARIANT_S} has been defined in /the-sqisign/CMakeLists.txt
 FOREACH(SVARIANT ${SVARIANT_S})
     string(TOLOWER ${SVARIANT} SVARIANT_LOWER)
     string(TOUPPER ${SVARIANT} SVARIANT_UPPER)
+
+    #SOURCE_FILES_VARIANT = sqisign.c
     set(SOURCE_FILES_VARIANT sqisign.c)
 
     # Library for SQIsign variant
+    #using sqisign.c to create a makefile about different verisons of sgisign
     add_library(sqisign_${SVARIANT_LOWER} ${SOURCE_FILES_VARIANT})
     target_link_libraries(sqisign_${SVARIANT_LOWER} PUBLIC
         $<$<BOOL:${ENABLE_SIGN}>:${LIB_SIGNATURE_${SVARIANT_UPPER}}>

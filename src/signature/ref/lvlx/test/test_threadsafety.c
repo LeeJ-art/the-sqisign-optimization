@@ -18,6 +18,7 @@ void *
 test_sqisign(void *_)
 {
     (void)_;
+    uint64_t ttime[2] = {0};
 
     bool res = 1;
 
@@ -31,7 +32,7 @@ test_sqisign(void *_)
 
     for (int i = 0; i < iterations; ++i) {
         protocols_keygen(&pk, &sk);
-        int scheck = protocols_sign(&sig, &pk, &sk, msg, sizeof(msg) / sizeof(*msg));
+        int scheck = protocols_sign(&sig, &pk, &sk, msg, sizeof(msg) / sizeof(*msg), ttime);
         int check = protocols_verify(&sig, &pk, msg, sizeof(msg) / sizeof(*msg));
         assert(scheck);
         assert(check);

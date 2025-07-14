@@ -14,6 +14,7 @@ int
 test_sqisign(int repeat)
 {
     int res = 1;
+    uint64_t  ttime[2] = {0};
 
     public_key_t pk;
     secret_key_t sk;
@@ -28,7 +29,7 @@ test_sqisign(int repeat)
         printf("#%d \n", i);
 
         protocols_keygen(&pk, &sk);
-        protocols_sign(&sig, &pk, &sk, msg, 32);
+        protocols_sign(&sig, &pk, &sk, msg, 32, ttime);
         int check = protocols_verify(&sig, &pk, msg, 32);
         if (!check) {
             printf("verif failed ! \n");

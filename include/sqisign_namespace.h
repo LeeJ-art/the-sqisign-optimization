@@ -427,6 +427,8 @@
 #define fp2_sqrt_verify                                 SQISIGN_NAMESPACE(fp2_sqrt_verify)
 #define fp2_sub                                         SQISIGN_NAMESPACE(fp2_sub)
 
+
+
 // Namespacing symbols exported from fp_p27500_64.c, fp_p5248_64.c, fp_p65376_64.c:
 #undef fp_copy
 #undef fp_cswap
@@ -746,10 +748,20 @@
 
 // Namespacing symbols exported from keygen.c:
 #undef protocols_keygen
+#undef protocols_keygen_p1
+#undef protocols_keygen_p11
+#undef protocols_keygen_p12
+#undef protocols_keygen_p13
+#undef protocols_keygen_p2
 #undef secret_key_finalize
 #undef secret_key_init
 
 #define protocols_keygen                                SQISIGN_NAMESPACE(protocols_keygen)
+#define protocols_keygen_p1                             SQISIGN_NAMESPACE(protocols_keygen_p1)
+#define protocols_keygen_p11                             SQISIGN_NAMESPACE(protocols_keygen_p11)
+#define protocols_keygen_p12                             SQISIGN_NAMESPACE(protocols_keygen_p12)
+#define protocols_keygen_p13                             SQISIGN_NAMESPACE(protocols_keygen_p13)
+#define protocols_keygen_p2                             SQISIGN_NAMESPACE(protocols_keygen_p2)
 #define secret_key_finalize                             SQISIGN_NAMESPACE(secret_key_finalize)
 #define secret_key_init                                 SQISIGN_NAMESPACE(secret_key_init)
 
@@ -960,8 +972,12 @@
 
 // Namespacing symbols exported from sign.c:
 #undef protocols_sign
+//#undef protocols_sign_p1
+//#undef protocols_sign_p2
 
 #define protocols_sign                                  SQISIGN_NAMESPACE(protocols_sign)
+// #define protocols_sign_p1                                  SQISIGN_NAMESPACE(protocols_sign_p1)
+// #define protocols_sign_p2                                  SQISIGN_NAMESPACE(protocols_sign_p2)
 
 // Namespacing symbols exported from sqisign.c:
 #undef sqisign_keypair
