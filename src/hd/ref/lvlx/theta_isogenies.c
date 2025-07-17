@@ -16,6 +16,17 @@ rdtsc(void)
     return (uint64_t)cpucycles();
 }
 
+void reduce_q(uint32x4_t* a){
+    uint32x4_t mask = (uint32x4_t)vdupq_n_s32(-1);
+    uint32x4_t zero = vdupq_n_u32(0);
+    uint32x4_t qlow = vdupq_n_u32((1<<29)-1);
+    uint32x4_t qhigh = vdupq_n_u32((5<<16)-1);
+    
+    for(int i = 0;i<8;i++) mask = vandq_u32(mask, vceqq_u32(a[i], qlow));
+    mask = vandq_u32(mask, vceqq_u32(a[8], qhigh));
+    for(int i = 0;i<9;i++) a[i] = vbslq_u32(mask, zero, a[i]);
+}
+
 // Select a base change matrix in constant time, with M1 a regular
 // base change matrix and M2 a precomputed base change matrix
 // If option = 0 then M <- M1, else if option = 0xFF...FF then M <- M2
@@ -1269,18 +1280,9 @@ void to_squared_theta_batched(uint32x4_t *a){
       a[i][3] = tmp[0][1] + (q2[i%9] - tmp[0][3]);
     }
 
-    // // reduce
-    // prop_2(a);
-    // prop_2(a+9);
-
-    // uint32x4_t reCarry = div5(a+8), imCarry = div5(a+17);
-
-    // a[0] = vaddq_u32(a[0], reCarry);
-    // a[9] = vaddq_u32(a[9], imCarry);
-
-    // prop_2(a);
-    // prop_2(a+9);
-
+    // reduce
+    prop_2(a);
+    prop_2(a+9);
 }
 
 
@@ -1347,6 +1349,152 @@ theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const the
     }else{
         itranspose(out, pt);
     }
+}
+
+
+int theta_isogeny_compute_vec(theta_isogeny_t *out,
+    const theta_structure_t *A,
+    const theta_point_t *T1_8,
+    const theta_point_t *T2_8,
+    bool hadamard_bool_1,
+    bool hadamard_bool_2,
+    bool verify)
+{
+    out->hadamard_bool_1 = hadamard_bool_1;
+    out->hadamard_bool_2 = hadamard_bool_2;
+    out->domain = *A;
+    out->T1_8 = *T1_8;
+    out->T2_8 = *T2_8;
+    out->codomain.precomputation = false;
+
+    //theta_point_t TT1, TT2;
+    uint32x4_t TT1_transpose[18], TT2_transpose[18]; //[0,8]:real, [9,17]:img
+
+    if (hadamard_bool_1) {
+        hadamard_transpose(TT1_transpose, *T1_8);
+        hadamard_transpose(TT2_transpose, *T2_8);
+    } else {
+        transpose(TT1_transpose, *T1_8);
+        transpose(TT2_transpose, *T2_8);
+
+    }
+
+    // reduce
+    uint32x4_t reCarry = div5(TT1_transpose+8), imCarry = div5(TT1_transpose+17);
+
+    TT1_transpose[0] = vaddq_u32(TT1_transpose[0], reCarry);
+    TT1_transpose[9] = vaddq_u32(TT1_transpose[9], imCarry);
+
+    reCarry = div5(TT2_transpose+8);
+    imCarry = div5(TT2_transpose+17);
+
+    TT2_transpose[0] = vaddq_u32(TT2_transpose[0], reCarry);
+    TT2_transpose[9] = vaddq_u32(TT2_transpose[9], imCarry);
+
+    to_squared_theta_batched(TT1_transpose);
+    to_squared_theta_batched(TT2_transpose);
+
+    uint32x4_t riTT1[9], mask, mask2;
+    for(int i = 0;i<9;i++){
+        riTT1[i] = (uint32x4_t)vzip1q_u64((uint64x2_t)(TT1_transpose[i]), (uint64x2_t)(TT1_transpose[i+9]));
+    }
+    mask = vandq_u32(theta_point_is_zero(TT2_transpose), theta_point_is_zero(TT2_transpose+9));
+    mask2 = theta_point_is_zero(riTT1);
+    if( (mask2[0]&mask2[2]) || (mask2[1]&mask2[3]) || vaddvq_u32(mask)) return 0;
+
+    // new TT1 = T1.y T1.x T2.t T2.z
+    //      x    T2.x T2.y T2.z T2.t
+    //      =    t2.  t1.  t3.  t3.
+    // reindex   t1.  t2.  t1.  t2.
+    //      x    T2.x T2.y T2.z T2.t
+    //      =    codomain
+    //           t3   t3.  
+    //      x    T1.y T1.x
+    //      =    precomputation
+
+    // new TT1
+    uint32x4_t t1[18], t2[18];
+    uint64x2_t t3[18];
+    uint32x4_t codomain[18] = {0}, precomputation[18] = {0}; 
+    for(int i = 0;i<18;i++){
+        t1[i][0] = TT1_transpose[i][1];
+        t1[i][1] = TT1_transpose[i][0];
+        t1[i][2] = TT2_transpose[i][3];
+        t1[i][3] = TT2_transpose[i][2];
+    }
+    // x
+    fp2_mul_batched(t2, t1, TT2_transpose);
+
+    // reindex
+    for(int i = 0;i<18;i++){
+        t3[i][0] = ((uint64x2_t)(t2[i]))[1];
+        t2[i][2] = t2[i][1];
+        t2[i][3] = t2[i][0];
+        t2[i][0] = t2[i][2];
+        t2[i][1] = t2[i][3];
+    }
+    // x
+    fp2_mul_batched(codomain, t2, TT2_transpose);
+    fp2_mul_batched(precomputation, (uint32x4_t*)t3, t1);
+
+    // carry
+    reCarry = div5(codomain+8);
+    imCarry = div5(codomain+17);
+
+    codomain[0] = vaddq_u32(codomain[0], reCarry);
+    codomain[9] = vaddq_u32(codomain[9], imCarry);
+
+    prop_2(codomain);
+    prop_2(codomain+9);
+
+    // carry
+    reCarry = div5(precomputation+8);
+    imCarry = div5(precomputation+17);
+
+    precomputation[0] = vaddq_u32(precomputation[0], reCarry);
+    precomputation[9] = vaddq_u32(precomputation[9], imCarry);
+
+    prop_2(precomputation);
+    prop_2(precomputation+9);
+
+    // copy
+    for(int i = 0;i<18;i++){
+        precomputation[i][2] = codomain[i][3];
+        precomputation[i][3] = codomain[i][2];
+    }
+
+    itranspose(&out->codomain.null_point, codomain);
+    itranspose(&out->precomputation, precomputation);
+
+    if (verify) {
+        fp2_mul_batched(t2, TT1_transpose, precomputation);
+        // carry
+        reCarry = div5(t2+8);
+        imCarry = div5(t2+17);
+        t2[0] = vaddq_u32(t2[0], reCarry);
+        t2[9] = vaddq_u32(t2[9], imCarry);
+        prop_2(t2);
+        prop_2(t2+9);
+        for(int i = 0;i<18;i++){
+            if(t2[i][0] != t2[i][1]) return 0;
+            if(t2[i][2] != t2[i][3]) return 0;
+        }
+        fp2_mul_batched(t1, TT2_transpose, precomputation);
+        // carry
+        reCarry = div5(t2+8);
+        imCarry = div5(t2+17);
+        t2[0] = vaddq_u32(t2[0], reCarry);
+        t2[9] = vaddq_u32(t2[9], imCarry);
+        prop_2(t2);
+        prop_2(t2+9);
+        for(int i = 0;i<18;i++){
+            if(t2[i][0] != t2[i][1]) return 0;
+            if(t2[i][2] != t2[i][3]) return 0;
+        }
+    }
+
+    if (hadamard_bool_2) hadamard(&out->codomain.null_point, &out->codomain.null_point); 
+    return 1;
 }
 
 
@@ -1593,6 +1741,7 @@ _theta_chain_compute_impl(unsigned n,
                           bool verify,
                           bool randomize)
 {
+    uint64_t time;
     theta_structure_t theta;
 
     // lift the basis
@@ -1679,54 +1828,74 @@ _theta_chain_compute_impl(unsigned n,
     theta.precomputation = 0;
     theta_precomputation(&theta);
 
-    theta_isogeny_t step;
+    theta_isogeny_t step;//, step_ref;
 
     // and now we do the remaining steps
     for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
-        assert(current < space);
+        // assert(current < space);
         while (todo[current] != 1) {
-            assert(todo[current] >= 2);
+            // assert(todo[current] >= 2);
             ++current;
-            assert(current < space);
+            // assert(current < space);
             const unsigned num_dbls = todo[current - 1] / 2;
-            assert(num_dbls && num_dbls < todo[current - 1]);
+            // assert(num_dbls && num_dbls < todo[current - 1]);
             double_iter(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
             double_iter(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
             todo[current] = todo[current - 1] - num_dbls;
         }
 
-        // computing the next step
+
+        // // computing the next step
+        // time = rdtsc();
+        // int ret;
+        // if (i == n - 2) // penultimate step
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
+        // else if (i == n - 1) // ultimate step
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
+        // else
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+        // //printf("- Compute ref: %lu, ", rdtsc()-time);
+        
         int ret;
+        time = rdtsc();
         if (i == n - 2) // penultimate step
-            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
         else if (i == n - 1) // ultimate step
-            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
         else
-            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+        
+        //printf("vec: %lu\n\n", rdtsc()-time);
+
+        // mont back
+        fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+        theta_montback(&step.codomain.null_point, &montback);
+        theta_montback(&step.precomputation, &montback);
+        // choose_small(&step_ref.codomain.null_point, &step.codomain.null_point);
+        // choose_small(&step_ref.precomputation, &step.precomputation);
+
         if (!ret)
             return 0;
-        
+
         /* strp CT in */
         theta_point_t pts2[numP ? numP : 1];
 
         // printf(" - eval time:\n");
         
-        uint64_t time = rdtsc();
+        time = rdtsc();
         for (unsigned j = 0; j < numP; ++j){
             theta_isogeny_eval(&pts2[j], &step, &pts[j]);
         }
         time = rdtsc() - time;
-        // printf("\tRef: %lu\n", time);
+        //printf("\tRef: %lu\n", time);
 
         uint64_t timeRef = rdtsc();
         for (unsigned j = 0; j < numP; ++j){
             theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
         }
         timeRef = rdtsc() - timeRef;
-        // printf("\tNeon: %lu\n", timeRef);
+        //printf("\tNeon: %lu\n", timeRef);
 
-
-        
 
         //mul back
         fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267

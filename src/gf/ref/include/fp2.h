@@ -4,6 +4,7 @@
 #include <sqisign_namespace.h>
 #include "fp.h"
 #include <stdio.h>
+#include <arm_neon.h>
 
 // Structure for representing elements in GF(p^2)
 typedef struct fp2_t
@@ -16,6 +17,7 @@ void fp2_mul_small(fp2_t *x, const fp2_t *y, uint32_t n);
 void fp2_set_one(fp2_t *x);
 void fp2_set_zero(fp2_t *x);
 uint32_t fp2_is_zero(const fp2_t *a);
+uint32x4_t theta_point_is_zero(const uint32x4_t* a);
 uint32_t fp2_is_equal(const fp2_t *a, const fp2_t *b);
 uint32_t fp2_is_one(const fp2_t *a);
 void fp2_copy(fp2_t *x, const fp2_t *y);

@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <encoded_sizes.h>
 #include <fp2.h>
+#include <arm_neon.h>
 
 /* Arithmetic modulo X^2 + 1 */
 
@@ -30,6 +31,21 @@ fp2_set_zero(fp2_t *x)
 {
     fp_set_zero(&(x->re));
     fp_set_zero(&(x->im));
+}
+
+uint32x4_t theta_point_is_zero(const uint32x4_t* a){
+    uint32x4_t mask = (uint32x4_t)vdupq_n_s32(-1);
+    uint32x4_t zero = vdupq_n_u32(0);
+    uint32x4_t qlow = vdupq_n_u32((1<<29)-1);
+    uint32x4_t qhigh = vdupq_n_u32((5<<16)-1);
+    uint32x4_t tmp;
+    
+    for(int i = 0;i<8;i++){
+        tmp = vorrq_u32(vceqq_u32(a[i], qlow), vceqq_u32(a[i], zero));
+        mask = vandq_u32(mask, tmp);
+    }
+    tmp = vorrq_u32(vceqq_u32(a[8], zero), vceqq_u32(a[8], qhigh));
+    return vandq_u32(mask, tmp);
 }
 
 // Is a GF(p^2) element zero?

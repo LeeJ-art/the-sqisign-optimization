@@ -124,7 +124,7 @@ bench_sqisign(uint64_t bench)
     for (uint64_t i = 0; i < bench; ++i) {
         int check = protocols_verify(&(sigs[i]), &(pks[i]), msg, sizeof(msg) / sizeof(*msg));
         if (!check) {
-            printf("verif failed ! \n");
+            printf("verify failed ! \n");
         }
     }
     t1 = rdtsc();
