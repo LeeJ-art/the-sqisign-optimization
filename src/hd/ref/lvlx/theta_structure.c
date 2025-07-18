@@ -30,6 +30,28 @@ theta_precomputation(theta_structure_t *A)
     A->precomputation = true;
 }
 
+void structure2point(theta_point_t* out, theta_structure_t *A){
+    out[0].x = A->XYZ0;
+    out[0].y = A->YZT0;
+    out[0].z = A->XZT0;
+    out[0].t = A->XYT0;
+    out[1].x = A->xyz0;
+    out[1].y = A->yzt0;
+    out[1].z = A->xzt0;
+    out[1].t = A->xyt0;
+}
+
+void point2structure(theta_structure_t* A, theta_point_t *out){
+    A->XYZ0 = out[0].x;
+    A->YZT0 = out[0].y;
+    A->XZT0 = out[0].z;
+    A->XYT0 = out[0].t;
+    A->xyz0 = out[1].x;
+    A->yzt0 = out[1].y;
+    A->xzt0 = out[1].z;
+    A->xyt0 = out[1].t;
+}
+
 void theta_precomputation_vec(theta_structure_t *A)
 {
 
@@ -113,49 +135,49 @@ double_point(theta_point_t *out, theta_structure_t *A, const theta_point_t *in)
     fp2_mul(&out->t, &out->t, &A->xyz0);
 }
 
-void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in)
-{
-    uint32x4_t out_transpose[18], al[18], ah[18], q[9];
-    theta_point_t tmp[2];
-    transpose(out_transpose, in[0]);
-    structure2point(tmp, A);
-    transpose(ah, tmp[0]);
-    transpose(al, tmp[1]);
+// void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in)
+// {
+//     uint32x4_t out_transpose[18], al[18], ah[18], q[9];
+//     theta_point_t tmp[2];
+//     transpose(out_transpose, in[0]);
+//     structure2point(tmp, A);
+//     transpose(ah, tmp[0]);
+//     transpose(al, tmp[1]);
     
-    // to_squared_theta(out, in);
-    to_square_theta_batched(out_transpose); // x1
+//     // to_squared_theta(out, in);
+//     to_squared_theta_batched(out_transpose, out_transpose); // x1
 
-    fp2_sqr_batched(out_transpose); // x2
+//     fp2_sqr_batched(out_transpose); // x2
 
-    if (!A->precomputation) {
-        theta_precomputation(A);
-    }
+//     if (!A->precomputation) {
+//         theta_precomputation(A);
+//     }
 
-    fp2_mul_batched(out_transpose, out_transpose, ah);
+//     fp2_mul_batched(out_transpose, out_transpose, ah);
 
-    //hadamard(out, out);
-    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
-    q[8] = vdupq_n_u32(0x4ffff);
-    uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
+//     //hadamard(out, out);
+//     for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
+//     q[8] = vdupq_n_u32(0x4ffff);
+//     uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
 
-    for(int i = 0;i<18;i++){
-      ah[0][0] = out_transpose[i][0] + out_transpose[i][1];
-      ah[0][1] = (out_transpose[i][0] + q[i%9][0]) - out_transpose[i][1];
-      ah[0][2] = out_transpose[i][2] + out_transpose[i][3];
-      ah[0][3] = (out_transpose[i][2] + q[i%9][0]) - out_transpose[i][3];
+//     for(int i = 0;i<18;i++){
+//       ah[0][0] = out_transpose[i][0] + out_transpose[i][1];
+//       ah[0][1] = (out_transpose[i][0] + q[i%9][0]) - out_transpose[i][1];
+//       ah[0][2] = out_transpose[i][2] + out_transpose[i][3];
+//       ah[0][3] = (out_transpose[i][2] + q[i%9][0]) - out_transpose[i][3];
 
-      out_transpose[i][0] = ah[0][0] + ah[0][2];
-      out_transpose[i][1] = ah[0][1] + ah[0][3];
-      out_transpose[i][2] = ah[0][0] + (q2[i%9] - ah[0][2]);
-      out_transpose[i][3] = ah[0][1] + (q2[i%9] - ah[0][3]);
-    }
+//       out_transpose[i][0] = ah[0][0] + ah[0][2];
+//       out_transpose[i][1] = ah[0][1] + ah[0][3];
+//       out_transpose[i][2] = ah[0][0] + (q2[i%9] - ah[0][2]);
+//       out_transpose[i][3] = ah[0][1] + (q2[i%9] - ah[0][3]);
+//     }
 
-    prop_2(out_transpose);
-    prop_2(out_transpose+9);
-    fp2_mul_batched(out_transpose, out_transpose, al);
+//     prop_2(out_transpose);
+//     prop_2(out_transpose+9);
+//     fp2_mul_batched(out_transpose, out_transpose, al);
 
-    itranspose(out, out_transpose);
-}
+//     itranspose(out, out_transpose);
+// }
 
 void
 double_iter(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
@@ -170,18 +192,18 @@ double_iter(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, i
     }
 }
 
-void
-double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
-{
-    if (exp == 0) {
-        *out = *in;
-    } else {
-        double_point_vec(out, A, in);
-        for (int i = 1; i < exp; i++) {
-            double_point_vec(out, A, out);
-        }
-    }
-}
+// void
+// double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
+// {
+//     if (exp == 0) {
+//         *out = *in;
+//     } else {
+//         double_point_vec(out, A, in);
+//         for (int i = 1; i < exp; i++) {
+//             double_point_vec(out, A, out);
+//         }
+//     }
+// }
 
 uint32_t
 is_product_theta_point(const theta_point_t *P)

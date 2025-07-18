@@ -1239,7 +1239,7 @@ void fp_mul_batched(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b){
     out[17] = vmovn_u64(vshrq_n_u64(t[1], 29));
 }
 
-void to_squared_theta_batched(uint32x4_t *a){
+void to_squared_theta_batched(uint32x4_t* out, uint32x4_t *a){
 
     uint32x4_t tmp[18] = {0}, q[9] = {0};
     for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
@@ -1255,13 +1255,13 @@ void to_squared_theta_batched(uint32x4_t *a){
     }
 
     // img = img + img
-    for(int i = 0;i<9;i++) a[i+9] = vaddq_u32(a[i+9], a[i+9]);
+    for(int i = 0;i<9;i++) out[i+9] = vaddq_u32(a[i+9], a[i+9]);
 
     // img = real * img
-    fp_mul_batched((uint32x2_t*) a+18, a, a+9);
+    fp_mul_batched((uint32x2_t*) out+18, a, out+9);
 
     // real = tmp0 * tmp1
-    fp_mul_batched((uint32x2_t*) a, tmp, tmp+9);
+    fp_mul_batched((uint32x2_t*) out, tmp, tmp+9);
 
     // hadamard
     for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
@@ -1269,22 +1269,29 @@ void to_squared_theta_batched(uint32x4_t *a){
     uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
 
     for(int i = 0;i<18;i++){
-      tmp[0][0] = a[i][0] + a[i][1];
-      tmp[0][1] = (a[i][0] + q[i%9][0]) - a[i][1];
-      tmp[0][2] = a[i][2] + a[i][3];
-      tmp[0][3] = (a[i][2] + q[i%9][0]) - a[i][3];
+      tmp[0][0] = out[i][0] + out[i][1];
+      tmp[0][1] = (out[i][0] + q[i%9][0]) - out[i][1];
+      tmp[0][2] = out[i][2] + out[i][3];
+      tmp[0][3] = (out[i][2] + q[i%9][0]) - out[i][3];
 
-      a[i][0] = tmp[0][0] + tmp[0][2];
-      a[i][1] = tmp[0][1] + tmp[0][3];
-      a[i][2] = tmp[0][0] + (q2[i%9] - tmp[0][2]);
-      a[i][3] = tmp[0][1] + (q2[i%9] - tmp[0][3]);
+      out[i][0] = tmp[0][0] + tmp[0][2];
+      out[i][1] = tmp[0][1] + tmp[0][3];
+      out[i][2] = tmp[0][0] + (q2[i%9] - tmp[0][2]);
+      out[i][3] = tmp[0][1] + (q2[i%9] - tmp[0][3]);
     }
 
     // reduce
-    prop_2(a);
-    prop_2(a+9);
-}
+    prop_2(out);
+    prop_2(out+9);
 
+    uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
+
+    out[0] = vaddq_u32(out[0], reCarry);
+    out[9] = vaddq_u32(out[9], imCarry);
+
+    prop_2(out);
+    prop_2(out+9);
+}
 
 void fp2_mul_batched(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b){
     uint32x4_t tmp[18], q[9] = {0};
@@ -1341,7 +1348,7 @@ theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const the
 
 
     // P^2 * phi
-    to_squared_theta_batched(pt);
+    to_squared_theta_batched(pt, pt);
     fp2_mul_batched(pt, pt, phit);
 
     if (phi->hadamard_bool_2){
@@ -1369,6 +1376,7 @@ int theta_isogeny_compute_vec(theta_isogeny_t *out,
 
     //theta_point_t TT1, TT2;
     uint32x4_t TT1_transpose[18], TT2_transpose[18]; //[0,8]:real, [9,17]:img
+    
 
     if (hadamard_bool_1) {
         hadamard_transpose(TT1_transpose, *T1_8);
@@ -1391,8 +1399,8 @@ int theta_isogeny_compute_vec(theta_isogeny_t *out,
     TT2_transpose[0] = vaddq_u32(TT2_transpose[0], reCarry);
     TT2_transpose[9] = vaddq_u32(TT2_transpose[9], imCarry);
 
-    to_squared_theta_batched(TT1_transpose);
-    to_squared_theta_batched(TT2_transpose);
+    to_squared_theta_batched(TT1_transpose, TT1_transpose);
+    to_squared_theta_batched(TT2_transpose, TT2_transpose);
 
     uint32x4_t riTT1[9], mask, mask2;
     for(int i = 0;i<9;i++){

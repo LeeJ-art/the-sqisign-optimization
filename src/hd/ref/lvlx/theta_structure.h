@@ -13,6 +13,7 @@
 #include <hd.h>
 
 #include <arm_neon.h>
+#include "theta_isogenies.h"
 
 /** @internal
  * @ingroup hd_module

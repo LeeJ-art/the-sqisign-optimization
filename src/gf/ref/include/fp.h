@@ -45,4 +45,5 @@ void fp_half(fp_t *out, const fp_t *a);
 void fp_exp3div4(fp_t *out, const fp_t *a);
 void fp_div3(fp_t *out, const fp_t *a);
 
+
 #endif
