@@ -1323,6 +1323,30 @@ void fp2_mul_batched(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b){
     prop_2(out+9);
 }
 
+// 1x
+void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a){
+    uint32x4_t tmp[18] = {0}, q[9] = {0};
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
+    q[8] = vdupq_n_u32(0x4ffff);
+
+    // tmp0 = real + img
+    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
+
+    // tmp1 = real - img
+    for(int i = 0;i<9;i++){
+        q[i] = vaddq_u32(q[i], a[i]);
+        tmp[i+9] = vsubq_u32(q[i], a[i+9]);
+    }
+
+    // img = img + img
+    for(int i = 0;i<9;i++) a[i+9] = vaddq_u32(a[i+9], a[i+9]);
+
+    // img = real * img
+    fp_mul_batched((uint32x2_t*) b+18, a, a+9);
+
+    // real = tmp0 * tmp1
+    fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
+}
 
 static void 
 theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const theta_point_t *P)
@@ -1692,6 +1716,19 @@ theta_point_to_montgomery_point(theta_couple_point_t *P12, const theta_point_t *
     return 1;
 }
 
+void copy_structure(theta_structure_t *out, theta_structure_t *A){
+    out->null_point = A->null_point;
+    out->precomputation = A->precomputation;
+    out->XYZ0 = A->XYZ0;
+    out->YZT0 = A->YZT0;
+    out->XZT0 = A->XZT0;
+    out->XYT0 = A->XYT0;
+    out->xyz0 = A->xyz0;
+    out->yzt0 = A->yzt0;
+    out->xzt0 = A->xzt0;
+    out->xyt0 = A->xyt0;
+}
+
 void theta_montback(theta_point_t* a, fp_t* mb){
     fp_mul(&(a[0].x.re), &(a[0].x.re), mb);
     fp_mul(&(a[0].x.im), &(a[0].x.im), mb);
@@ -1805,6 +1842,7 @@ _theta_chain_compute_impl(unsigned n,
 
     // kernel points for the remaining isogeny steps
     theta_point_t thetaQ1[space], thetaQ2[space];
+    //theta_point_t thetaQ1_ref[space], thetaQ2_ref[space];
 
     // the gluing step
     theta_gluing_t first_step;
@@ -1847,8 +1885,11 @@ _theta_chain_compute_impl(unsigned n,
             // assert(current < space);
             const unsigned num_dbls = todo[current - 1] / 2;
             // assert(num_dbls && num_dbls < todo[current - 1]);
-            double_iter(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
-            double_iter(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
+            // double_iter(&thetaQ1_ref[current], &theta, &thetaQ1[current - 1], num_dbls);
+            // double_iter(&thetaQ2_ref[current], &theta, &thetaQ2[current - 1], num_dbls);
+            
+            double_iter_vec(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
+            double_iter_vec(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
             todo[current] = todo[current - 1] - num_dbls;
         }
 

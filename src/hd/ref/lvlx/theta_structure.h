@@ -275,6 +275,7 @@ to_squared_theta(theta_point_t *out, const theta_point_t *in)
  *
  */
 void theta_precomputation(theta_structure_t *A);
+bool theta_precomputation_vec(uint32x4_t* a0, uint32x4_t* a1, uint32x4_t* A_null);
 
 /**
  * @brief Compute the double of the theta point in on the theta struc A
@@ -288,6 +289,7 @@ void theta_precomputation(theta_structure_t *A);
  *
  */
 void double_point(theta_point_t *out, theta_structure_t *A, const theta_point_t *in);
+void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in);
 
 /**
  * @brief Compute the iterated double of the theta point in on the theta struc A
@@ -302,7 +304,7 @@ void double_point(theta_point_t *out, theta_structure_t *A, const theta_point_t 
  *
  */
 void double_iter(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp);
-
+void double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp);
 /*
  * @brief Check if a theta point is a product theta point
  *
