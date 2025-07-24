@@ -1775,6 +1775,7 @@ void choose_small(theta_point_t* a, theta_point_t* b){
     }
 }
 
+
 static int
 _theta_chain_compute_impl(unsigned n,
                           theta_couple_curve_t *E12,
@@ -1870,9 +1871,41 @@ _theta_chain_compute_impl(unsigned n,
     }
 
     // set-up the theta_structure for the first codomain
+    // theta_structure_t theta_ref;
+    // theta_ref.null_point = first_step.codomain;
+    // theta_ref.precomputation = 0;
+
     theta.null_point = first_step.codomain;
     theta.precomputation = 0;
-    theta_precomputation(&theta);
+    // theta_precomputation(&theta_ref);
+
+    transpose_theta_precomputation_vec(&theta);
+    fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+    fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
+    theta_point_t dg, dg2;
+    dg.x = theta.XYT0;
+    dg.y = theta.YZT0;
+    dg.z = theta.XZT0;
+    dg.t = theta.XYZ0;
+
+    dg2.x = theta.xyt0;
+    dg2.y = theta.yzt0;
+    dg2.z = theta.xzt0;
+    dg2.t = theta.xyz0;
+
+    theta_montback(&dg, &mb5);
+    theta_montback(&dg2, &mb2);
+
+    theta.XYT0 = dg.x;
+    theta.YZT0 = dg.y;
+    theta.XZT0 = dg.z;
+    theta.XYZ0 = dg.t;
+
+    theta.xyt0 = dg2.x;
+    theta.yzt0 = dg2.y;
+    theta.xzt0 = dg2.z;
+    theta.xyz0 = dg2.t;
+
 
     theta_isogeny_t step;//, step_ref;
 

@@ -26,4 +26,5 @@ void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a);
 void theta_montback(theta_point_t* a, fp_t* mb);
 void choose_small(theta_point_t* a, theta_point_t* b);
 void copy_structure(theta_structure_t *out, theta_structure_t *A);
+void reduce_q(uint32x4_t* a);
 #endif

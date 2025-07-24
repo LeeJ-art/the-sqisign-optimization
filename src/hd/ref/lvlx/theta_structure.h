@@ -229,7 +229,10 @@ void hadamard_itranspose(theta_point_t *Out, uint32x4_t *In){
     hadamard(Out, &tmp);
 }
 
-
+//data structure transform
+void structure2point(theta_point_t* out, theta_structure_t *A);
+void structure2point_reindex(theta_point_t* out, theta_structure_t *A);
+void point2structure(theta_structure_t* A, theta_point_t *out);
 
 /**
  * @brief Square the coordinates of a theta point
@@ -276,6 +279,7 @@ to_squared_theta(theta_point_t *out, const theta_point_t *in)
  */
 void theta_precomputation(theta_structure_t *A);
 bool theta_precomputation_vec(uint32x4_t* a0, uint32x4_t* a1, uint32x4_t* A_null);
+void transpose_theta_precomputation_vec(theta_structure_t *A);
 
 /**
  * @brief Compute the double of the theta point in on the theta struc A
