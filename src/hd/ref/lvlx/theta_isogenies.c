@@ -1871,7 +1871,7 @@ _theta_chain_compute_impl(unsigned n,
     }
 
     // set-up the theta_structure for the first codomain
-    // theta_structure_t theta_ref;
+    //theta_structure_t theta_ref;
     // theta_ref.null_point = first_step.codomain;
     // theta_ref.precomputation = 0;
 

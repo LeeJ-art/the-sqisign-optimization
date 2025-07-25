@@ -305,7 +305,7 @@ void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_poin
     // fp2_mul(&out->z, &out->z, &A->XYT0);
     // fp2_mul(&out->t, &out->t, &A->XYZ0);
     // out: 9x + 4xin >1: 4x + 4xin
-    // (((in+in+1) + (in+in+1) + 1) + 5 + 1)x  
+    // (((in+in+1) + (in+in+1) + 1) + 5 + 1)x
     fp2_mul_batched(out_transpose, out_transpose, a0);
 
     // reduce
