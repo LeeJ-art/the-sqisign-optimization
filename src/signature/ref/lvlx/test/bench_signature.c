@@ -45,7 +45,7 @@ bench_sqisign(uint64_t bench)
 
     printf("\n======================  KeyGen  ======================\n\n");
     
-    int p1t = 0, p2t = 0, p11 = 0, p12 = 0, p13 = 0;
+    uint64_t p1t = 0, p2t = 0, p11 = 0, p12 = 0, p13 = 0;
     for (uint64_t i = 0; i < bench; ++i) {
 
         ec_basis_t B_0_two;
@@ -102,17 +102,14 @@ bench_sqisign(uint64_t bench)
     for (uint64_t i = 0; i < bench; ++i) {
         protocols_sign(&(sigs[i]), &(pks[i]), &(sks[i]), msg, sizeof(msg) / sizeof(*msg), ttime);
     }
-
+    t1 = rdtsc();
+    ms = (1000. * (float)(clock() - t) / CLOCKS_PER_SEC);
     printf("\x1b[34mAvg P_com: %'" PRIu64 " cycles\x1b[0m\n", (ttime[0]) / bench);
     printf("\x1b[34mAvg P_chl: %'" PRIu64 " cycles\x1b[0m\n", (ttime[1]) / bench);
     printf("\x1b[34mAvg P_rsp: %'" PRIu64 " cycles\x1b[0m\n", (ttime[2]) / bench);
-    printf("\x1b[34mAvg P_othr: %'" PRIu64 " cycles\x1b[0m\n", (ttime[4]) / bench);
-    printf("\x1b[34mAvg P_rign: %'" PRIu64 " cycles\x1b[0m\n", (ttime[5]) / bench);
+    // printf("\x1b[34mAvg P_othr: %'" PRIu64 " cycles\x1b[0m\n", (ttime[4]) / bench);
+    // printf("\x1b[34mAvg P_rign: %'" PRIu64 " cycles\x1b[0m\n", (ttime[5]) / bench);
     printf("\x1b[34mAvg P_bas: %'" PRIu64 " cycles\x1b[0m\n", (ttime[3]) / bench);
-    
-
-    t1 = rdtsc();
-    ms = (1000. * (float)(clock() - t) / CLOCKS_PER_SEC);
     printf("Average signature time [%.2f ms]\n", (float)(ms / bench));
     printf("\x1b[34mAvg signature: %'" PRIu64 " cycles\x1b[0m\n", (t1 - t0) / bench);
 

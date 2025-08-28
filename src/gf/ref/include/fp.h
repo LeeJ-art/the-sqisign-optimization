@@ -10,6 +10,7 @@
 #include <string.h>
 #include <tutil.h>
 #include <fp_constants.h>
+#include <arm_neon.h>
 
 typedef digit_t fp_t[NWORDS_FIELD]; // Datatype for representing field elements
 
@@ -45,5 +46,9 @@ void fp_half(fp_t *out, const fp_t *a);
 void fp_exp3div4(fp_t *out, const fp_t *a);
 void fp_div3(fp_t *out, const fp_t *a);
 
+/*New vectorization*/
+void prop_2(uint32x4_t *n);
+uint32x4_t div5(uint32x4_t* in);
+void fp_mul_batched(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b);
 
 #endif

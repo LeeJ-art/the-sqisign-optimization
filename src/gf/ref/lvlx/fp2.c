@@ -343,3 +343,169 @@ fp2_cswap(fp2_t *a, fp2_t *b, uint32_t ctl)
     fp_cswap(&(a->re), &(b->re), ctl);
     fp_cswap(&(a->im), &(b->im), ctl);
 }
+
+
+void fp2_add_batched(uint32x4_t* out, uint32x4_t *a, uint32x4_t *b){
+    for (int i=0; i<9; i++){
+        out[i] = vaddq_u32(a[i], b[i]);
+        out[i+9] = vaddq_u32(a[i+9], b[i+9]);
+    }
+
+    // reduce
+    // prop_2(out);
+    // prop_2(out+9);
+
+    // uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
+
+    // out[0] = vaddq_u32(out[0], reCarry);
+    // out[9] = vaddq_u32(out[9], imCarry);
+
+    // prop_2(out);
+    // prop_2(out+9);
+}
+
+void fp2_sub_batched(uint32x4_t* out, uint32x4_t *a, uint32x4_t *b){
+    uint32x4_t q[9], tmp[9];
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x3FFFFFFE);
+    q[8] = vdupq_n_u32(0x9FFFE);
+    
+    for (int i=0; i<9; i++){
+        tmp[i] = vaddq_u32(a[i], q[i]);
+        out[i] = vsubq_u32(tmp[i], b[i]);
+
+        tmp[i] = vaddq_u32(a[i+9], q[i]);
+        out[i+9] = vsubq_u32(tmp[i], b[i+9]);
+    }
+
+    //reduce
+    // prop_2(out);
+    // prop_2(out+9);
+
+    // uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
+
+    // out[0] = vaddq_u32(out[0], reCarry);
+    // out[9] = vaddq_u32(out[9], imCarry);
+
+    // prop_2(out);
+    // prop_2(out+9);
+}
+
+//1x
+void to_squared_theta_batched(uint32x4_t *out, uint32x4_t *a){
+    uint32x4_t tmp[18] = {0}, q[9] = {0};
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
+    q[8] = vdupq_n_u32(0x4ffff);
+
+    // tmp0 = real + img
+    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
+
+    // tmp1 = real - img
+    for(int i = 0;i<9;i++){
+        q[i] = vaddq_u32(q[i], a[i]);
+        tmp[i+9] = vsubq_u32(q[i], a[i+9]);
+    }
+
+    // img = img + img
+    // for(int i = 0;i<9;i++) out[i+9] = vaddq_u32(a[i+9], a[i+9]);
+    for(int i = 0;i<9;i++) q[i] = vaddq_u32(a[i+9], a[i+9]);
+
+    // img = real * img
+    // fp_mul_batched((uint32x2_t*) out+18, a, out+9);
+    fp_mul_batched((uint32x2_t*) out+18, a, q);
+
+    // real = tmp0 * tmp1
+    fp_mul_batched((uint32x2_t*) out, tmp, tmp+9);
+
+    // hadamard
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
+    q[8] = vdupq_n_u32(0x4ffff);
+    uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
+
+    for(int i = 0;i<18;i++){
+      tmp[0][0] = out[i][0] + out[i][1];
+      tmp[0][1] = (out[i][0] + q[i%9][0]) - out[i][1];
+      tmp[0][2] = out[i][2] + out[i][3];
+      tmp[0][3] = (out[i][2] + q[i%9][0]) - out[i][3];
+
+      out[i][0] = tmp[0][0] + tmp[0][2];
+      out[i][1] = tmp[0][1] + tmp[0][3];
+      out[i][2] = tmp[0][0] + (q2[i%9] - tmp[0][2]);
+      out[i][3] = tmp[0][1] + (q2[i%9] - tmp[0][3]);
+    }
+
+    // reduce
+    prop_2(out);
+    prop_2(out+9);
+
+    uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
+
+    out[0] = vaddq_u32(out[0], reCarry);
+    out[9] = vaddq_u32(out[9], imCarry);
+
+    // prop_2(out);
+    // prop_2(out+9);
+}
+
+//1x, [real, img] = [4 29-bit, 5 29-bit]
+void fp2_mul_batched(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b){
+    uint32x4_t tmp[18], q[9] = {0};
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x3FFFFFFE);
+    q[8] = vdupq_n_u32(0x9FFFE);
+
+    // tmp_a = a_re + a_im
+    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
+    // tmp_b = b_re + b_im
+    for(int i = 0;i<9;i++) tmp[i+9] = vaddq_u32(b[i], b[i+9]);
+    // c1
+    fp_mul_batched((uint32x2_t*)tmp, tmp, tmp+9);
+    // c2
+    fp_mul_batched(((uint32x2_t*)tmp)+18, a+9, b+9);
+    // c0
+    fp_mul_batched((uint32x2_t*)out, a, b);
+    
+    for(int i = 0;i<9;i++){
+        out[i+9] = vaddq_u32(tmp[i], q[i]);
+        tmp[i] = vaddq_u32(tmp[i+9], out[i]);
+        out[i+9] = vsubq_u32(out[i+9], tmp[i]);
+        
+        out[i] = vaddq_u32(out[i], q[i]);
+        out[i] = vsubq_u32(out[i], tmp[i+9]);
+    }
+    //reduce
+    prop_2(out);
+    prop_2(out+9);
+
+    uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
+
+    out[0] = vaddq_u32(out[0], reCarry);
+    out[9] = vaddq_u32(out[9], imCarry);
+
+    // prop_2(out);
+    // prop_2(out+9);
+}
+
+// 1x
+void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a){
+    uint32x4_t tmp[18] = {0}, q[9] = {0};
+    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x3FFFFFFE);
+    q[8] = vdupq_n_u32(0x9FFFE);
+
+    // tmp0 = real + img
+    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
+
+    // tmp1 = real - img
+    for(int i = 0;i<9;i++){
+        q[i] = vaddq_u32(q[i], a[i]);
+        tmp[i+9] = vsubq_u32(q[i], a[i+9]);
+    }
+
+    // img = img + img
+    //for(int i = 0;i<9;i++) a[i+9] = vaddq_u32(a[i+9], a[i+9]);
+    for(int i = 0;i<9;i++) q[i] = vaddq_u32(a[i+9], a[i+9]);
+
+    // img = real * img
+    fp_mul_batched((uint32x2_t*) b+18, a, q);
+
+    // real = tmp0 * tmp1
+    fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
+}

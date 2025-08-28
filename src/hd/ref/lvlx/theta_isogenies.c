@@ -574,6 +574,13 @@ gluing_eval_point(theta_point_t *image, const theta_couple_jac_point_t *P, const
     hadamard(image, image);
 }
 
+static void gluing_eval_point_vec(theta_point_t *imageA, const theta_couple_jac_point_t *PA,
+                                theta_point_t *imageB, const theta_couple_jac_point_t *PB, 
+                                const theta_gluing_t *phi)
+{
+
+}
+
 // Same as gluing_eval_point but in the very special case where we already know that the point will
 // have a zero coordinate at the place where the zero coordinate of the dual_theta_nullpoint would
 // have made the computation difficult
@@ -622,6 +629,16 @@ gluing_eval_basis(theta_point_t *image1,
 {
     gluing_eval_point(image1, xyT1, phi);
     gluing_eval_point(image2, xyT2, phi);
+}
+
+static void 
+gluing_eval_basis_vec(theta_point_t *image1,
+                  theta_point_t *image2,
+                  const theta_couple_jac_point_t *xyT1,
+                  const theta_couple_jac_point_t *xyT2,
+                  const theta_gluing_t *phi)
+{
+    gluing_eval_point_vec(image1, xyT1, image2, xyT2, phi);
 }
 
 /**
@@ -897,457 +914,6 @@ theta_isogeny_eval(theta_point_t *out, const theta_isogeny_t *phi, const theta_p
 }
 
 /* new version */
-
-void prop_2(uint32x4_t *n) {
-    uint32x4_t mask = vdupq_n_u32(((uint32_t)1 << 29) - 1);
-    uint64x2_t mask64 = vdupq_n_u64(((uint32_t)1 << 29) - 1);
-    uint64x2_t carry[2] = {0};
-
-    for(int i = 0;i<4;i++) ((uint32_t*)carry)[2*i] = n[0][i];
-    carry[0] = vshrq_n_u64(carry[0], 29);
-    carry[1] = vshrq_n_u64(carry[1], 29);
-    n[0] = vandq_u32(n[0], mask);
-    for (int i = 1; i < 8; i++) {
-        carry[0] = vaddw_u32(carry[0], ((uint32x2_t*)n)[2*i]);
-        carry[1] = vaddw_u32(carry[1], ((uint32x2_t*)n)[2*i+1]);
-        ((uint32x2_t*)n)[2*i] = vmovn_u64(vandq_u64(carry[0], mask64));
-        ((uint32x2_t*)n)[2*i+1] = vmovn_u64(vandq_u64(carry[1], mask64));
-        carry[0] = vshrq_n_u64(carry[0], 29);
-        carry[1] = vshrq_n_u64(carry[1], 29);
-    }
-    ((uint32x2_t*)n)[16] = vadd_u32(((uint32x2_t*)n)[16], vmovn_u64(carry[0]));
-    ((uint32x2_t*)n)[17] = vadd_u32(((uint32x2_t*)n)[17], vmovn_u64(carry[1]));
-}
-
-// in: a, out: a/5
-uint32x4_t div5(uint32x4_t* in){
-    uint16x4_t t1 = vmovn_u32(vshrq_n_u32(in[0], 16));
-    uint16x4_t t2 = (uint16x4_t)vqdmulh_n_s16((int16x4_t)t1, 6554);
-    uint32x4_t t3 = vmovl_u16(vmls_n_u16(t1, t2, 5));
-    in[0] = vaddq_u32( vshlq_n_u32(t3, 16), vandq_u32(in[0], vdupq_n_u32((1<<16)-1)));
-    return vmovl_u16(t2);
-}
-
-void fp_mul_batched(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b){
-    uint64x2_t mask = vdupq_n_u64(((uint64_t)1<<29)-1);
-    uint64x2_t t[2] = {0};
-    uint32x2_t mod = vdup_n_u32(0x50000);
-    uint32x2_t tmp[18];
-
-    
-    // x^0
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[0]);
-    tmp[0] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[1] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^1
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[0]);
-    tmp[2] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[3] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^2
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[0]);
-    tmp[4] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[5] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^3
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[0]);
-    tmp[6] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[7] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^4
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[0]);
-    tmp[8] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[9] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^5
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[0]);
-    tmp[10] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[11] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^6
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[0]);
-    tmp[12] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[13] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^7
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[0]);
-    tmp[14] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[15] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^8
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[0], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[0], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[1]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[0]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[0]);
-    t[0] = vmlal_u32(t[0], tmp[0], mod);
-    t[1] = vmlal_u32(t[1], tmp[1], mod);
-    tmp[16] = vmovn_u64( vandq_u64(t[0], mask));
-    tmp[17] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-
-// -------- upper 9 sets ---------
-
-    // x^9
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[2], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[1], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[2]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[2]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[1]);
-    t[0] = vmlal_u32(t[0], tmp[2], mod);
-    t[1] = vmlal_u32(t[1], tmp[3], mod);
-    out[0] = vmovn_u64( vandq_u64(t[0], mask));
-    out[1] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^10
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[4], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[2], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[3]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[4]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[2]);
-    t[0] = vmlal_u32(t[0], tmp[4], mod);
-    t[1] = vmlal_u32(t[1], tmp[5], mod);
-    out[2] = vmovn_u64( vandq_u64(t[0], mask));
-    out[3] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^11
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[6], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[3], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[4]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[6]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[3]);
-    t[0] = vmlal_u32(t[0], tmp[6], mod);
-    t[1] = vmlal_u32(t[1], tmp[7], mod);
-    out[4] = vmovn_u64( vandq_u64(t[0], mask));
-    out[5] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^12
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[8], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[4], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[5]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[8]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[4]);
-    t[0] = vmlal_u32(t[0], tmp[8], mod);
-    t[1] = vmlal_u32(t[1], tmp[9], mod);
-    out[6] = vmovn_u64( vandq_u64(t[0], mask));
-    out[7] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^13
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[10], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[5], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[6]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[10]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[5]);
-    t[0] = vmlal_u32(t[0], tmp[10], mod);
-    t[1] = vmlal_u32(t[1], tmp[11], mod);
-    out[8] = vmovn_u64( vandq_u64(t[0], mask));
-    out[9] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^14
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[12], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[6], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[7]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[12]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[6]);
-    t[0] = vmlal_u32(t[0], tmp[12], mod);
-    t[1] = vmlal_u32(t[1], tmp[13], mod);
-    out[10] = vmovn_u64( vandq_u64(t[0], mask));
-    out[11] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^15
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[14], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[7], b[8]);
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[14]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[7]);
-    t[0] = vmlal_u32(t[0], tmp[14], mod);
-    t[1] = vmlal_u32(t[1], tmp[15], mod);
-    out[12] = vmovn_u64( vandq_u64(t[0], mask));
-    out[13] = vmovn_u64( vandq_u64(t[1], mask));
-    t[0] = vshrq_n_u64(t[0], 29);
-    t[1] = vshrq_n_u64(t[1], 29);
-
-
-    // x^16
-    t[0] = vmlal_u32(t[0], ((uint32x2_t*)a)[16], ((uint32x2_t*)b)[16]);
-    t[1] = vmlal_high_u32(t[1], a[8], b[8]);
-    t[0] = vmlal_u32(t[0], tmp[16], mod);
-    t[1] = vmlal_u32(t[1], tmp[17], mod);
-    out[14] = vmovn_u64( vandq_u64(t[0], mask));
-    out[15] = vmovn_u64( vandq_u64(t[1], mask));
-
-    // x^17
-    out[16] = vmovn_u64(vshrq_n_u64(t[0], 29));
-    out[17] = vmovn_u64(vshrq_n_u64(t[1], 29));
-}
-
-void to_squared_theta_batched(uint32x4_t* out, uint32x4_t *a){
-
-    uint32x4_t tmp[18] = {0}, q[9] = {0};
-    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
-    q[8] = vdupq_n_u32(0x4ffff);
-
-    // tmp0 = real + img
-    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
-
-    // tmp1 = real - img
-    for(int i = 0;i<9;i++){
-        q[i] = vaddq_u32(q[i], a[i]);
-        tmp[i+9] = vsubq_u32(q[i], a[i+9]);
-    }
-
-    // img = img + img
-    for(int i = 0;i<9;i++) out[i+9] = vaddq_u32(a[i+9], a[i+9]);
-
-    // img = real * img
-    fp_mul_batched((uint32x2_t*) out+18, a, out+9);
-
-    // real = tmp0 * tmp1
-    fp_mul_batched((uint32x2_t*) out, tmp, tmp+9);
-
-    // hadamard
-    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
-    q[8] = vdupq_n_u32(0x4ffff);
-    uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
-
-    for(int i = 0;i<18;i++){
-      tmp[0][0] = out[i][0] + out[i][1];
-      tmp[0][1] = (out[i][0] + q[i%9][0]) - out[i][1];
-      tmp[0][2] = out[i][2] + out[i][3];
-      tmp[0][3] = (out[i][2] + q[i%9][0]) - out[i][3];
-
-      out[i][0] = tmp[0][0] + tmp[0][2];
-      out[i][1] = tmp[0][1] + tmp[0][3];
-      out[i][2] = tmp[0][0] + (q2[i%9] - tmp[0][2]);
-      out[i][3] = tmp[0][1] + (q2[i%9] - tmp[0][3]);
-    }
-
-    // reduce
-    prop_2(out);
-    prop_2(out+9);
-
-    uint32x4_t reCarry = div5(out+8), imCarry = div5(out+17);
-
-    out[0] = vaddq_u32(out[0], reCarry);
-    out[9] = vaddq_u32(out[9], imCarry);
-
-    prop_2(out);
-    prop_2(out+9);
-}
-
-void fp2_mul_batched(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b){
-    uint32x4_t tmp[18], q[9] = {0};
-    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
-    q[8] = vdupq_n_u32(0x4ffff);
-
-    // tmp_a = a_re + a_im
-    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
-    // tmp_b = b_re + b_im
-    for(int i = 0;i<9;i++) tmp[i+9] = vaddq_u32(b[i], b[i+9]);
-    // c1
-    fp_mul_batched((uint32x2_t*)tmp, tmp, tmp+9);
-    // c2
-    fp_mul_batched(((uint32x2_t*)tmp)+18, a+9, b+9);
-    // c0
-    fp_mul_batched((uint32x2_t*)out, a, b);
-    
-    for(int i = 0;i<9;i++){
-        tmp[i] = vaddq_u32(tmp[i], q[i]);
-        out[i+9] = vsubq_u32(tmp[i], tmp[i+9]);
-        
-        out[i+9] = vaddq_u32(out[i+9], q[i]);
-        out[i+9] = vsubq_u32(out[i+9], out[i]);
-        
-        out[i] = vaddq_u32(out[i], q[i]);
-        out[i] = vsubq_u32(out[i], tmp[i+9]);
-    }
-    prop_2(out);
-    prop_2(out+9);
-}
-
-// 1x
-void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a){
-    uint32x4_t tmp[18] = {0}, q[9] = {0};
-    for(int i = 0;i<8;i++) q[i] = vdupq_n_u32(0x1fffffff);
-    q[8] = vdupq_n_u32(0x4ffff);
-
-    // tmp0 = real + img
-    for(int i = 0;i<9;i++) tmp[i] = vaddq_u32(a[i], a[i+9]);
-
-    // tmp1 = real - img
-    for(int i = 0;i<9;i++){
-        q[i] = vaddq_u32(q[i], a[i]);
-        tmp[i+9] = vsubq_u32(q[i], a[i+9]);
-    }
-
-    // img = img + img
-    for(int i = 0;i<9;i++) a[i+9] = vaddq_u32(a[i+9], a[i+9]);
-
-    // img = real * img
-    fp_mul_batched((uint32x2_t*) b+18, a, a+9);
-
-    // real = tmp0 * tmp1
-    fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
-}
-
 static void 
 theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const theta_point_t *P)
 {
@@ -1729,16 +1295,6 @@ void copy_structure(theta_structure_t *out, theta_structure_t *A){
     out->xyt0 = A->xyt0;
 }
 
-void theta_montback(theta_point_t* a, fp_t* mb){
-    fp_mul(&(a[0].x.re), &(a[0].x.re), mb);
-    fp_mul(&(a[0].x.im), &(a[0].x.im), mb);
-    fp_mul(&(a[0].y.re), &(a[0].y.re), mb);
-    fp_mul(&(a[0].y.im), &(a[0].y.im), mb);
-    fp_mul(&(a[0].z.re), &(a[0].z.re), mb);
-    fp_mul(&(a[0].z.im), &(a[0].z.im), mb);
-    fp_mul(&(a[0].t.re), &(a[0].t.re), mb);
-    fp_mul(&(a[0].t.im), &(a[0].t.im), mb);
-}
 
 void choose_small(theta_point_t* a, theta_point_t* b){
     if(a[0].x.re[4] < b[0].x.re[4]){
@@ -1918,11 +1474,11 @@ _theta_chain_compute_impl(unsigned n,
             // assert(current < space);
             const unsigned num_dbls = todo[current - 1] / 2;
             // assert(num_dbls && num_dbls < todo[current - 1]);
-            // double_iter(&thetaQ1_ref[current], &theta, &thetaQ1[current - 1], num_dbls);
-            // double_iter(&thetaQ2_ref[current], &theta, &thetaQ2[current - 1], num_dbls);
+            double_iter(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
+            double_iter(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
             
-            double_iter_vec(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
-            double_iter_vec(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
+            //double_iter_vec(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
+            //double_iter_vec(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
             todo[current] = todo[current - 1] - num_dbls;
         }
 
@@ -1939,7 +1495,7 @@ _theta_chain_compute_impl(unsigned n,
         // //printf("- Compute ref: %lu, ", rdtsc()-time);
         
         int ret;
-        time = rdtsc();
+        // time = rdtsc();
         if (i == n - 2) // penultimate step
             ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
         else if (i == n - 1) // ultimate step
@@ -2071,6 +1627,316 @@ _theta_chain_compute_impl(unsigned n,
     return 1;
 }
 
+static int
+_theta_chain_compute_impl_randomized(unsigned n,
+                          theta_couple_curve_t *E12,
+                          const theta_kernel_couple_points_t *ker,
+                          bool extra_torsion,
+                          theta_couple_curve_t *E34,
+                          theta_couple_point_t *P12,
+                          size_t numP,
+                          bool verify,
+                          bool randomize)
+{
+    uint64_t time;
+    theta_structure_t theta;
+
+    // lift the basis
+    time = rdtsc();
+    theta_couple_jac_point_t xyT1, xyT2;
+
+    ec_basis_t bas1 = { .P = ker->T1.P1, .Q = ker->T2.P1, .PmQ = ker->T1m2.P1 };
+    ec_basis_t bas2 = { .P = ker->T1.P2, .Q = ker->T2.P2, .PmQ = ker->T1m2.P2 };
+
+    if (!lift_basis(&xyT1.P1, &xyT2.P1, &bas1, &E12->E1))
+        return 0;
+    if (!lift_basis(&xyT1.P2, &xyT2.P2, &bas2, &E12->E2))
+        return 0;
+    //printf("lift_basis: %lu\n", rdtsc()-time);
+
+    const unsigned extra = HD_extra_torsion * extra_torsion;
+
+#ifndef NDEBUG
+    assert(extra == 0 || extra == 2); // only cases implemented
+    if (!test_point_order_twof(&bas2.P, &E12->E2, n + extra))
+        debug_print("bas2.P does not have correct order");
+
+    if (!test_jac_order_twof(&xyT2.P2, &E12->E2, n + extra))
+        debug_print("xyT2.P2 does not have correct order");
+#endif
+
+    theta_point_t pts[numP ? numP : 1];
+
+    int space = 1;
+    for (unsigned i = 1; i < n; i *= 2)
+        ++space;
+
+    uint16_t todo[space];
+    todo[0] = n - 2 + extra;
+
+    int current = 0;
+    time = rdtsc();
+    // kernel points for the gluing isogeny
+    theta_couple_jac_point_t jacQ1[space], jacQ2[space];
+    jacQ1[0] = xyT1;
+    jacQ2[0] = xyT2;
+    while (todo[current] != 1) {
+        assert(todo[current] >= 2);
+        ++current;
+        assert(current < space);
+        // the gluing isogeny is quite a bit more expensive than the others,
+        // so we adjust the usual splitting rule here a little bit: towards
+        // the end of the doubling chain it will be cheaper to recompute the
+        // doublings after evaluation than to push the intermediate points.
+        const unsigned num_dbls = todo[current - 1] >= 16 ? todo[current - 1] / 2 : todo[current - 1] - 1;
+        assert(num_dbls && num_dbls < todo[current - 1]);
+        // double_couple_jac_point_iter(&jacQ1[current], num_dbls, &jacQ1[current - 1], E12);
+        // double_couple_jac_point_iter(&jacQ2[current], num_dbls, &jacQ2[current - 1], E12);
+        double_couple_jac_point_iter_vec(&jacQ1[current], num_dbls, &jacQ1[current - 1], E12);
+        double_couple_jac_point_iter_vec(&jacQ2[current], num_dbls, &jacQ2[current - 1], E12);
+        todo[current] = todo[current - 1] - num_dbls;
+    }
+    //printf("db_jac_iter: %lu\n", rdtsc()-time);
+
+    // kernel points for the remaining isogeny steps
+    theta_point_t thetaQ1[space], thetaQ2[space];
+    //theta_point_t thetaQ1_ref[space], thetaQ2_ref[space];
+
+    // the gluing step
+    time = rdtsc();
+    theta_gluing_t first_step;
+    {
+        assert(todo[current] == 1);
+
+        // compute the gluing isogeny
+        if (!gluing_compute(&first_step, E12, &jacQ1[current], &jacQ2[current], verify))
+            return 0;
+
+        // evaluate
+        for (unsigned j = 0; j < numP; ++j) {
+            assert(ec_is_zero(&P12[j].P1) || ec_is_zero(&P12[j].P2));
+            if (!gluing_eval_point_special_case(&pts[j], &P12[j], &first_step))
+                return 0;
+        }
+
+        // push kernel points through gluing isogeny
+        for (int j = 0; j < current; ++j) {
+            gluing_eval_basis(&thetaQ1[j], &thetaQ2[j], &jacQ1[j], &jacQ2[j], &first_step);
+            --todo[j];
+        }
+
+        --current;
+    }
+    //printf("gluing: %lu\n", rdtsc()-time);
+
+    // set-up the theta_structure for the first codomain
+    //theta_structure_t theta_ref;
+    // theta_ref.null_point = first_step.codomain;
+    // theta_ref.precomputation = 0;
+    time = rdtsc();
+    theta.null_point = first_step.codomain;
+    theta.precomputation = 0;
+    // theta_precomputation(&theta_ref);
+
+    transpose_theta_precomputation_vec(&theta);
+    fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+    fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
+    theta_point_t dg, dg2;
+    dg.x = theta.XYT0;
+    dg.y = theta.YZT0;
+    dg.z = theta.XZT0;
+    dg.t = theta.XYZ0;
+
+    dg2.x = theta.xyt0;
+    dg2.y = theta.yzt0;
+    dg2.z = theta.xzt0;
+    dg2.t = theta.xyz0;
+
+    theta_montback(&dg, &mb5);
+    theta_montback(&dg2, &mb2);
+
+    theta.XYT0 = dg.x;
+    theta.YZT0 = dg.y;
+    theta.XZT0 = dg.z;
+    theta.XYZ0 = dg.t;
+
+    theta.xyt0 = dg2.x;
+    theta.yzt0 = dg2.y;
+    theta.xzt0 = dg2.z;
+    theta.xyz0 = dg2.t;
+    //printf("theta_precomputation: %lu\n", rdtsc()-time);
+
+    time = rdtsc();
+    theta_isogeny_t step;//, step_ref;
+    // and now we do the remaining steps
+    for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
+        // assert(current < space);
+        while (todo[current] != 1) {
+            // assert(todo[current] >= 2);
+            ++current;
+            // assert(current < space);
+            const unsigned num_dbls = todo[current - 1] / 2;
+            // assert(num_dbls && num_dbls < todo[current - 1]);
+            // double_iter(&thetaQ1_ref[current], &theta, &thetaQ1[current - 1], num_dbls);
+            // double_iter(&thetaQ2_ref[current], &theta, &thetaQ2[current - 1], num_dbls);
+            double_iter_vec(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
+            double_iter_vec(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
+            todo[current] = todo[current - 1] - num_dbls;
+        }
+
+
+        // // computing the next step
+        // time = rdtsc();
+        // int ret;
+        // if (i == n - 2) // penultimate step
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
+        // else if (i == n - 1) // ultimate step
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
+        // else
+        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+        // //printf("- Compute ref: %lu, ", rdtsc()-time);
+        
+        int ret;
+        // time = rdtsc();
+        if (i == n - 2) // penultimate step
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
+        else if (i == n - 1) // ultimate step
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
+        else
+            ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+        
+        //printf("vec: %lu\n\n", rdtsc()-time);
+
+        // mont back
+        fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+        theta_montback(&step.codomain.null_point, &montback);
+        theta_montback(&step.precomputation, &montback);
+        // choose_small(&step_ref.codomain.null_point, &step.codomain.null_point);
+        // choose_small(&step_ref.precomputation, &step.precomputation);
+
+        if (!ret)
+            return 0;
+
+        /* strp CT in */
+        theta_point_t pts2[numP ? numP : 1];
+
+        // printf(" - eval time:\n");
+        
+        //time = rdtsc();
+        for (unsigned j = 0; j < numP; ++j){
+            theta_isogeny_eval(&pts2[j], &step, &pts[j]);
+        }
+        //time = rdtsc() - time;
+        //printf("\tRef: %lu\n", time);
+
+        //uint64_t timeRef = rdtsc();
+        for (unsigned j = 0; j < numP; ++j){
+            theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
+        }
+        //timeRef = rdtsc() - timeRef;
+        //printf("\tNeon: %lu\n", timeRef);
+
+
+        //mul back
+        fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
+
+        /* adjust */
+        for(unsigned j = 0; j < numP; ++j){
+            theta_montback(pts+j, &mb);
+            choose_small(pts2+j, pts+j);
+        }
+
+        // updating the codomain
+        theta = step.codomain;
+
+        // pushing the kernel
+        /*assert(todo[current] == 1);*/
+        theta_point_t thetaQ1_2[space], thetaQ2_2[space];
+        // printf(" - eval time2:\n");
+
+        //time = rdtsc();
+        for (int j = 0; j < current; ++j){
+            theta_isogeny_eval(&thetaQ1_2[j], &step, &thetaQ1[j]);
+            theta_isogeny_eval(&thetaQ2_2[j], &step, &thetaQ2[j]);
+        }
+        //time = rdtsc() - time;
+        // printf("\tRef: %lu\n", time);
+        
+        //timeRef = rdtsc();
+        for (int j = 0; j < current; ++j){
+            theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
+            theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
+            /*assert(todo[j]);*/
+            --todo[j];
+        }
+        //timeRef = rdtsc() - timeRef;
+        // printf("\tNeon: %lu\n", timeRef);
+
+        for(int j = 0; j < current; ++j){
+            theta_montback(thetaQ1+j, &mb);
+            choose_small(thetaQ1_2+j, thetaQ1+j);
+            theta_montback(thetaQ2+j, &mb);
+            choose_small(thetaQ2_2+j, thetaQ2+j);
+        }
+        
+        --current;
+    }
+    //printf("theta_structure: %lu\n", rdtsc()-time);
+
+    /*assert(current == -1);*/
+    time = rdtsc();
+    if (!extra_torsion) {
+        if (n >= 3) {
+            // in the last step we've skipped pushing the kernel since current was == 0, let's do it now
+            theta_isogeny_eval_vec(&thetaQ1[0], &step, &thetaQ1[0]);
+            theta_isogeny_eval_vec(&thetaQ2[0], &step, &thetaQ2[0]);
+        }
+
+        // penultimate step
+        theta_isogeny_compute_4(&step, &theta, &thetaQ1[0], &thetaQ2[0], 0, 0);
+        for (unsigned j = 0; j < numP; ++j)
+            theta_isogeny_eval(&pts[j], &step, &pts[j]);
+        theta = step.codomain;
+        theta_isogeny_eval_vec(&thetaQ1[0], &step, &thetaQ1[0]);
+        theta_isogeny_eval_vec(&thetaQ2[0], &step, &thetaQ2[0]);
+
+        // ultimate step
+        theta_isogeny_compute_2(&step, &theta, &thetaQ1[0], &thetaQ2[0], 1, 0);
+        for (unsigned j = 0; j < numP; ++j)
+            theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
+        theta = step.codomain;
+    }
+    //printf("theta_chain: %lu\n", rdtsc()-time);
+
+    // final splitting step
+    time = rdtsc();
+    theta_splitting_t last_step;
+
+    bool is_split = splitting_compute(&last_step, &theta, extra_torsion ? 8 : -1, randomize);
+
+    if (!is_split) {
+        debug_print("kernel did not generate an isogeny between elliptic products");
+        return 0;
+    }
+
+    if (!theta_product_structure_to_elliptic_product(E34, &last_step.B))
+        return 0;
+    //printf("splitting: %lu\n", rdtsc()-time);
+
+    // evaluate
+    time = rdtsc();
+    for (size_t j = 0; j < numP; ++j) {
+        apply_isomorphism(&pts[j], &last_step.M, &pts[j]);
+        if (!theta_point_to_montgomery_point(&P12[j], &pts[j], &last_step.B))
+            return 0;
+    }
+    // printf("evaluation: %lu\n", rdtsc()-time);
+    //printf("================================\n");
+    time = time - rdtsc();
+
+    return 1;
+}
+
 int
 theta_chain_compute_and_eval(unsigned n,
                              /*const*/ theta_couple_curve_t *E12,
@@ -2106,5 +1972,6 @@ theta_chain_compute_and_eval_randomized(unsigned n,
                                         theta_couple_point_t *P12,
                                         size_t numP)
 {
-    return _theta_chain_compute_impl(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
+    //printf("********************randomized********************\n");
+    return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
 }

@@ -169,21 +169,10 @@ void transpose_theta_precomputation_vec(theta_structure_t *A)
     // fp2_mul(&A->YZT0, &t2, &A_dual.y);
     // fp2_mul(&A->XZT0, &t2, &A_dual.x);
     // fp2_mul(&A->XYT0, &t1, &A_dual.t);
-    // fp2_mul(&A->XYZ0, &t1, &A_dual.z);
-    
+    // fp2_mul(&A->XYZ0, &t1, &A_dual.z);    
     fp2_mul_batched(a0, t1, t2);
-
-    // reduce
-    prop_2(a0);
-    prop_2(a0+9);
-    reCarry = div5(a0+8), imCarry = div5(a0+17);
-    a0[0] = vaddq_u32(a0[0], reCarry);
-    a0[9] = vaddq_u32(a0[9], imCarry);
-    prop_2(a0);
-    prop_2(a0+9);
-
     itranspose(&(B[0]), a0);
-    
+
     for(int i = 0;i<18;i++){
         t1[i][0] = t3[i][3];
         t1[i][1] = t3[i][3];
@@ -194,7 +183,6 @@ void transpose_theta_precomputation_vec(theta_structure_t *A)
         t2[i][2] = A_null[i][3];
         t2[i][3] = A_null[i][2];
     }
-
     // fp2_mul(&t1, &A->null_point.x, &A->null_point.y);
     // fp2_mul(&t2, &A->null_point.z, &A->null_point.t);
     // fp2_mul(&A->yzt0, &t2, &A->null_point.y);
@@ -202,20 +190,9 @@ void transpose_theta_precomputation_vec(theta_structure_t *A)
     // fp2_mul(&A->xyt0, &t1, &A->null_point.t);
     // fp2_mul(&A->xyz0, &t1, &A->null_point.z);
     fp2_mul_batched(a1, t1, t2);
-
-    //reduce
-    prop_2(a1);
-    prop_2(a1+9);
-    reCarry = div5(a1+8), imCarry = div5(a1+17);
-    a1[0] = vaddq_u32(a1[0], reCarry);
-    a1[9] = vaddq_u32(a1[9], imCarry);
-    prop_2(a1);
-    prop_2(a1+9);
-
     itranspose(&(B[1]), a1);
 
     point2structure(A, B);
-    
     A->precomputation = true;
 }
 
@@ -244,7 +221,7 @@ double_point(theta_point_t *out, theta_structure_t *A, const theta_point_t *in)
     fp2_mul(&out->t, &out->t, &A->xyz0);
 }
 
-// (12+4in)x
+// (12+4in)x: general version
 void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in)
 {
     uint32x4_t out_transpose[18], q[9];
@@ -375,6 +352,100 @@ void double_point_vec(theta_point_t *out, theta_structure_t *A, const theta_poin
     itranspose(out, out_transpose);
 }
 
+// (12+4in)x: optimized for double_iter_vec
+void double_point_vec_optimized(uint32x4_t* out_transpose, theta_structure_t *A, const uint32x4_t* q)
+{
+    // 1x + 2xin
+    // (in+in+1)x
+    to_squared_theta_batched(out_transpose, out_transpose);
+
+    // 3x + 4xin
+    // ((in+in+1) + (in+in+1) + 1)x
+    fp2_sqr_batched(out_transpose, out_transpose);
+
+    // // transpose A
+    uint32x4_t A_null[18], a0[18], a1[18];
+    theta_point_t A_theta[2];
+    transpose(A_null, A->null_point);
+    structure2point_reindex(A_theta, A);
+    transpose(a0, A_theta[0]);
+    transpose(a1, A_theta[1]);
+
+    // Here keep A's points in a0, a1 with mul-friendly sequence{YZT, XZT, XYT, XYZ}
+    if (!A->precomputation) {
+        // theta_precomputation(A);
+        A->precomputation = theta_precomputation_vec(a0, a1, A_null); // a0: 5x, a1:2x
+        itranspose(A_theta, a0);
+        itranspose(A_theta+1, a1);
+        point2structure(A, A_theta);
+    }
+
+    // out: 9x + 4xin >1: 4x + 4xin
+    // (((in+in+1) + (in+in+1) + 1) + 5 + 1)x  
+    fp2_mul_batched(out_transpose, out_transpose, a0);
+
+    //hadamard(out, out);
+    uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
+    for(int i = 0;i<18;i++){
+      a0[0][0] = out_transpose[i][0] + out_transpose[i][1];
+      a0[0][1] = (out_transpose[i][0] + q[i%9][0]) - out_transpose[i][1];
+      a0[0][2] = out_transpose[i][2] + out_transpose[i][3];
+      a0[0][3] = (out_transpose[i][2] + q[i%9][0]) - out_transpose[i][3];
+
+      out_transpose[i][0] = a0[0][0] + a0[0][2];
+      out_transpose[i][1] = a0[0][1] + a0[0][3];
+      out_transpose[i][2] = a0[0][0] + (q2[i%9] - a0[0][2]);
+      out_transpose[i][3] = a0[0][1] + (q2[i%9] - a0[0][3]);
+    }
+    
+    // 12x + 4xin
+    // ((((in+in+1) + (in+in+1) + 1) + 5 + 1) + 2 + 1)x
+    fp2_mul_batched(out_transpose, out_transpose, a1);
+}
+
+void double_point_vec_optimized_withPrecompute(uint32x4_t* out_transpose, uint32x4_t *A32, const uint32x4_t* q)
+{
+    //uint32x4_t reCarry, imCarry;
+    
+    // 1x + 2xin
+    // (in+in+1)x
+    to_squared_theta_batched(out_transpose, out_transpose);
+
+    // 3x + 4xin
+    // ((in+in+1) + (in+in+1) + 1)x
+    fp2_sqr_batched(out_transpose, out_transpose);
+
+    // out: 9x + 4xin >1: 4x + 4xin
+    // (((in+in+1) + (in+in+1) + 1) + 5 + 1)x  
+    fp2_mul_batched(out_transpose, out_transpose, A32);
+
+    //hadamard(out, out);
+    uint32_t q2[9] = {1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 1073741822, 655358};
+    uint32x4_t tmp;
+    for(int i = 0;i<18;i++){
+      tmp[0] = out_transpose[i][0] + out_transpose[i][1];
+      tmp[1] = (out_transpose[i][0] + q[i%9][0]) - out_transpose[i][1];
+      tmp[2] = out_transpose[i][2] + out_transpose[i][3];
+      tmp[3] = (out_transpose[i][2] + q[i%9][0]) - out_transpose[i][3];
+
+      out_transpose[i][0] = tmp[0] + tmp[2];
+      out_transpose[i][1] = tmp[1] + tmp[3];
+      out_transpose[i][2] = tmp[0] + (q2[i%9] - tmp[2]);
+      out_transpose[i][3] = tmp[1] + (q2[i%9] - tmp[3]);
+    }
+    // // reduce
+    // prop_2(out_transpose);
+    // prop_2(out_transpose+9);
+    // reCarry = div5(out_transpose+8);
+    // imCarry = div5(out_transpose+17);
+    // out_transpose[0] = vaddq_u32(out_transpose[0], reCarry);
+    // out_transpose[9] = vaddq_u32(out_transpose[9], imCarry);
+   
+    // 12x + 4xin
+    // ((((in+in+1) + (in+in+1) + 1) + 5 + 1) + 2 + 1)x
+    fp2_mul_batched(out_transpose, out_transpose, A32+18);
+}
+
 void
 double_iter(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
 {
@@ -388,30 +459,55 @@ double_iter(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, i
     }
 }
 
-void
-double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
+void double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point_t *in, int exp)
 {
-    //fp_t mb12 = {450359962737049, 53687091, 0, 0, 52776558133248};
-    //theta_point_t ref;
-    //theta_structure_t B;
-    //copy_structure(&B, A);
-    fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-
+    //printf("exp:%d\n", exp);
     if (exp == 0) {
         *out = *in;
     } else {
-        double_point_vec(out, A, in);
-        //double_point(out, A, in);
-        theta_montback(out, &mb5);
-        //choose_small(&ref, out);
-        for (int i = 1; i < exp; i++) {
-            double_point_vec(out, A, out);
-            //double_point(out, A, out);
-            theta_montback(out, &mb5);
-            //choose_small(&ref, out);
+        /*Elminate too much transpose*/
+        uint32x4_t out_transpose[18];
+        transpose(out_transpose, in[0]);
+        prop_2(out_transpose);
+        prop_2(out_transpose+9);
+        uint32x4_t reCarry = div5(out_transpose+8), imCarry = div5(out_transpose+17);
+        out_transpose[0] = vaddq_u32(out_transpose[0], reCarry);
+        out_transpose[9] = vaddq_u32(out_transpose[9], imCarry);
+
+        /*Since exp is an uncertain variable, we require to montback to R each time.*/
+        uint32x4_t mb[18], q_sub[9];
+        for (int i=0; i<2; i++){
+            mb[i*9] = vdupq_n_u32(429496729);
+            mb[i*9+1] = vdupq_n_u32(3276);
+            mb[i*9+2] = vdupq_n_u32(0);
+            mb[i*9+3] = vdupq_n_u32(0);
+            mb[i*9+4] = vdupq_n_u32(0);
+            mb[i*9+5] = vdupq_n_u32(0);
+            mb[i*9+6] = vdupq_n_u32(0);
+            mb[i*9+7] = vdupq_n_u32(0);
+            mb[i*9+8] = vdupq_n_u32(196608);
         }
+        for(int i = 0;i<8;i++) q_sub[i] = vdupq_n_u32(0x1fffffff);
+        q_sub[8] = vdupq_n_u32(0x4ffff);
+
+        /*double_point_vec*/
+        double_point_vec_optimized(out_transpose, A, q_sub);
+        u32_montback(out_transpose, mb);
+        /*Since it has done one precomputation here, A never be changed.*/
+        uint32x4_t A32[36];
+        theta_point_t A_theta[2];
+        structure2point_reindex(A_theta, A);
+        transpose(A32, A_theta[0]);
+        transpose(A32+18, A_theta[1]);
+        for (int i = 1; i < exp; i++) {
+            double_point_vec_optimized_withPrecompute(out_transpose, A32, q_sub);
+            u32_montback(out_transpose, mb);
+        }
+        itranspose(out, out_transpose);
+          
     }
 }
+
 
 uint32_t
 is_product_theta_point(const theta_point_t *P)

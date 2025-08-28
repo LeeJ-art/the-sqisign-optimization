@@ -115,15 +115,15 @@ DBL(jac_point_t *Q, const jac_point_t *P, const ec_curve_t *AC)
 
     uint32_t flag = fp2_is_zero(&P->x) & fp2_is_zero(&P->z);
 
-    fp2_sqr(&t0, &P->x); // t0 = x1^2
+    fp2_sqr(&t0, &P->x); // t0 = x1^2               r^3
     fp2_add(&t1, &t0, &t0);
-    fp2_add(&t0, &t0, &t1); // t0 = 3x1^2
-    fp2_sqr(&t1, &P->z);    // t1 = z1^2
+    fp2_add(&t0, &t0, &t1); // t0 = 3x1^2           r^3
+    fp2_sqr(&t1, &P->z);    // t1 = z1^2            r
     fp2_mul(&t2, &P->x, &AC->A);
-    fp2_add(&t2, &t2, &t2); // t2 = 2Ax1
-    fp2_add(&t2, &t1, &t2); // t2 = 2Ax1+z1^2
-    fp2_mul(&t2, &t1, &t2); // t2 = z1^2(2Ax1+z1^2)
-    fp2_add(&t2, &t0, &t2); // t2 = alpha = 3x1^2 + z1^2(2Ax1+z1^2)
+    fp2_add(&t2, &t2, &t2); // t2 = 2Ax1            r^2
+    fp2_add(&t2, &t1, &t2); // t2 = 2Ax1+z1^2       r^2
+    fp2_mul(&t2, &t1, &t2); // t2 = z1^2(2Ax1+z1^2) r^3
+    fp2_add(&t2, &t0, &t2); // t2 = alpha = 3x1^2 + z1^2(2Ax1+z1^2) (r + r^3)
     fp2_mul(&Q->z, &P->y, &P->z);
     fp2_add(&Q->z, &Q->z, &Q->z); // z2 = 2y1z1
     fp2_sqr(&t0, &Q->z);
@@ -154,6 +154,9 @@ DBLW(jac_point_t *Q, fp2_t *u, const jac_point_t *P, const fp2_t *t)
   // Formula from https://hyperelliptic.org/EFD/g1p/auto-shortw-modified.html
 
     uint32_t flag = fp2_is_zero(&P->x) & fp2_is_zero(&P->z);
+    if (flag == 1){
+        printf("flag = 1!\n");
+    }
 
     fp2_t xx, c, cc, r, s, m;
     // XX = X^2
@@ -191,6 +194,140 @@ DBLW(jac_point_t *Q, fp2_t *u, const jac_point_t *P, const fp2_t *t)
 
     fp2_select(&Q->x, &Q->x, &P->x, -flag);
     fp2_select(&Q->z, &Q->z, &P->z, -flag);
+}
+
+
+void DBLW_vec(uint32x4_t *out)
+{ // Cost of 3M + 5S.
+  // Doubling on a Weierstrass curve, representation in modified Jacobian coordinates
+  // (X:Y:Z:T=a*Z^4) corresponding to (X/Z^2,Y/Z^3), where a is the curve coefficient.
+  // Formula from https://hyperelliptic.org/EFD/g1p/auto-shortw-modified.html
+
+    uint32x4_t ax[18], az[18], a1[18], a2[18], a3[18], TR[18];//tmp[18];
+    uint32x4_t reCarry, imCarry;
+
+    // uint32_t flag = fp2_is_zero(&in->P1.x) & fp2_is_zero(&in->P1.z);
+    // uint32_t flag2 = fp2_is_zero(&in->P2.x) & fp2_is_zero(&in->P2.z);
+    // for (int i=0; i<18; i++){
+    //     tmp[i][0] = out[i][0];
+    //     tmp[i][1] = out[i+18][1];
+    //     tmp[i][2] = out[i][2];
+    //     tmp[i][3] = out[i+18][3];
+    //     tmp[i+9][0] = out[i+9][0];
+    //     tmp[i+9][1] = out[i+27][1];
+    //     tmp[i+9][2] = out[i+9][2];
+    //     tmp[i+9][3] = out[i+27][3];
+    // }
+    //uint32x4_t flag = vandq_u32(theta_point_is_zero(tmp), theta_point_is_zero(tmp+9));
+
+    fp2_sqr_batched(a1, out);
+
+    fp2_add_batched(a2, a1, a1);
+    prop_2(a2);
+    prop_2(a2+9);
+    reCarry = div5(a2+8), imCarry = div5(a2+17);
+    a2[0] = vaddq_u32(a2[0], reCarry);
+    a2[9] = vaddq_u32(a2[9], imCarry);
+
+    /*It must requires to do reduction since 4y^2 is 4 times 29-bit*/
+    for (int i=0; i<18; i++){
+        a3[i][0] = (out+18)[i][0];
+        a3[i][2] = (out+18)[i][2];
+        a3[i][1] = a2[i][1];
+        a3[i][3] = a2[i][3];
+    }
+    fp2_add_batched(a3, a2, a3);
+
+    for (int i=0; i<18; i++){
+        a2[i][0] = a3[i][0];
+        a2[i][2] = a3[i][2];
+        a3[i][0] = a3[i][1];
+        a3[i][2] = a3[i][3];
+        a3[i][1] = (out+18)[i][1];
+        a3[i][3] = (out+18)[i][3];
+    }
+    fp2_mul_batched(ax, a3, out);
+    
+    for (int i=0; i<18; i++){
+        a1[i][1] = a3[i][1] = ax[i][1];
+        a1[i][3] = a3[i][3] = ax[i][3];
+        a3[i][0] = a2[i][0];
+        a3[i][2] = a2[i][2];
+    }
+    fp2_add_batched(TR, a1, a3);
+    prop_2(TR);
+    prop_2(TR+9);
+    reCarry = div5(TR+8), imCarry = div5(TR+17);
+    TR[0] = vaddq_u32(TR[0], reCarry);
+    TR[9] = vaddq_u32(TR[9], imCarry);
+
+    for (int i=0; i<18; i++){
+        a2[i][0] = TR[i][0];
+        a2[i][2] = TR[i][2];
+    }
+    fp2_sqr_batched(a2, a2);
+
+    for (int i=0; i<18; i++){
+        ax[i][1] = a2[i][1];
+        ax[i][3] = a2[i][3];
+        a2[i][1] = ax[i][0];
+        a2[i][3] = ax[i][2];
+    }
+    fp2_add_batched(ax, ax, ax);
+    prop_2(ax);
+    prop_2(ax+9);
+    reCarry = div5(ax+8), imCarry = div5(ax+17);
+    ax[0] = vaddq_u32(ax[0], reCarry);
+    ax[9] = vaddq_u32(ax[9], imCarry);
+
+    for (int i=0; i<18; i++){
+        a3[i][0] = ax[i][0];
+        a3[i][2] = ax[i][2];
+        a3[i][1] = a2[i][0];
+        a3[i][3] = a2[i][2];
+    }
+    fp2_sub_batched(a3, a3, a2);
+
+    for (int i=0; i<18; i++){
+        a2[i][0] = (out+18)[i][0];
+        a2[i][2] = (out+18)[i][2];
+        (out+18)[i][1] = a3[i][0];
+        (out+18)[i][3] = a3[i][2];
+    }
+    fp2_add_batched(az, a2, out+18);
+    prop_2(az);
+    prop_2(az+9);
+    reCarry = div5(az+8), imCarry = div5(az+17);
+    az[0] = vaddq_u32(az[0], reCarry);
+    az[9] = vaddq_u32(az[9], imCarry);
+
+    for (int i=0; i<18; i++){
+        a1[i][1] = TR[i][0];
+        a1[i][3] = TR[i][2];
+        a1[i][0] = ax[i][1];
+        a1[i][2] = ax[i][3];
+    }
+    fp2_mul_batched(az, a1, az);
+    for (int i=0; i<18; i++){
+        (out+18)[i][0] = az[i][0];
+        (out+18)[i][2] = az[i][2];
+        (out+18)[i][1] = TR[i][1];
+        (out+18)[i][3] = TR[i][3];
+    }
+    
+    for (int i=0; i<18; i++){
+        az[i][0] = a3[i][1];
+        az[i][2] = a3[i][3];
+        ax[i][0] = a2[i][1];
+        ax[i][2] = a2[i][3];
+    }
+    fp2_sub_batched(out, az, ax);
+    prop_2(out);
+    prop_2(out+9);  
+    reCarry = div5(out+8), imCarry = div5(out+17);
+    out[0] = vaddq_u32(out[0], reCarry);
+    out[9] = vaddq_u32(out[9], imCarry);
+
 }
 
 void
@@ -309,7 +446,7 @@ jac_to_xz_add_components(add_components_t *add_comp, const jac_point_t *P, const
 
     fp2_t t0, t1, t2, t3, t4, t5, t6;
 
-    fp2_sqr(&t0, &P->z);             // t0 = z1^2
+    fp2_sqr(&t0, &P->z);             // t0 = z1^2                                       
     fp2_sqr(&t1, &Q->z);             // t1 = z2^2
     fp2_mul(&t2, &P->x, &t1);        // t2 = x1z2^2
     fp2_mul(&t3, &t0, &Q->x);        // t3 = z1^2x2

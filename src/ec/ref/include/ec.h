@@ -511,6 +511,7 @@ void jac_neg(jac_point_t *Q, const jac_point_t *P);
 void ADD(jac_point_t *R, const jac_point_t *P, const jac_point_t *Q, const ec_curve_t *AC);
 void DBL(jac_point_t *Q, const jac_point_t *P, const ec_curve_t *AC);
 void DBLW(jac_point_t *Q, fp2_t *u, const jac_point_t *P, const fp2_t *t);
+void DBLW_vec(uint32x4_t *out);
 void jac_to_xz_add_components(add_components_t *uvw, const jac_point_t *P, const jac_point_t *Q, const ec_curve_t *AC);
 
 /**

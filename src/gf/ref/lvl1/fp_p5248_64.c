@@ -296,6 +296,7 @@ static void modinv(const spint *x, const spint *h, spint *z) {
 
 // Convert m to n-residue form, n=nres(m)
 static void nres(const spint *m, spint *n) {
+  //c = R^2%q
   const spint c[5] = {0x4cccccccccf5cu, 0x1999999999999u, 0x3333333333333u,
                       0x6666666666666u, 0xcccccccccccu};
   modmul(m, c, n);
@@ -529,12 +530,14 @@ const digit_t ONE[NWORDS_FIELD] = { 0x0000000000000019,
                                     0x0000000000000000,
                                     0x0000300000000000 };
 // Montgomery representation of 2^-1
+/*2^{-1} * 2^{255}*/
 static const digit_t TWO_INV[NWORDS_FIELD] = { 0x000000000000000c,
                                                0x0000000000000000,
                                                0x0000000000000000,
                                                0x0000000000000000,
                                                0x0000400000000000 };
 // Montgomery representation of 3^-1
+/*3^{-1} * 2^{255}*/
 static const digit_t THREE_INV[NWORDS_FIELD] = { 0x000555555555555d,
                                                  0x0002aaaaaaaaaaaa,
                                                  0x0005555555555555,

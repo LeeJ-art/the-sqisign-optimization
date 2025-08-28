@@ -21,13 +21,16 @@ commit(ec_curve_t *E_com, ec_basis_t *basis_even_com, quat_left_ideal_t *lideal_
 {
 
     bool found = false;
-
+    //uint64_t tttmp = rdtsc();
     found = quat_sampling_random_ideal_O0_given_norm(lideal_com, &COM_DEGREE, 1, &QUAT_represent_integer_params, NULL);
+    //printf("quat_sampling_random_ideal_O0_given_norm: %lu\n", rdtsc()-tttmp);
     // replacing it with a shorter prime norm equivalent ideal
     found = found && quat_lideal_prime_norm_reduced_equivalent(
                          lideal_com, &QUATALG_PINFTY, QUAT_primality_num_iter, QUAT_equiv_bound_coeff);
     // ideal to isogeny clapotis
+    //tttmp = rdtsc();
     found = found && dim2id2iso_arbitrary_isogeny_evaluation(basis_even_com, E_com, lideal_com);
+    //printf("dim2id2iso_ideal_to_isogeny_eval: %lu\n", rdtsc()-tttmp);
     return found;
 }
 
@@ -626,13 +629,11 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
             // B_chall_2 on E_chall_2
             ret = compute_dim2_isogeny_challenge(
                 &Eaux2_Echall2, &Ecom_Eaux, &degree_resp_inv, pow_dim2_deg_resp, sig->two_resp_length, reduced_order);
-                if (!ret){
+            if (!ret){
                 ttime[2] += rdtsc() - t0;
                 t0 = rdtsc();
                 continue;
             }
-
-            
 
         } else {
             // No 2d isogeny needed, so simulate a "Kani matrix" identity here

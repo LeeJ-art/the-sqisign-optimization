@@ -972,7 +972,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     ret = fixed_degree_isogeny_and_eval(
         &idealv, v, true, &Fv_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points), index_order2);
     time_inv += rdtsc() - tttmp;
-        if (!ret) {
+    if (!ret) {
         goto cleanup;
     }
     
@@ -1030,7 +1030,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     // applying theta
     tttmp = rdtsc();
     endomorphism_application_even_basis(&bas2, 0, &Fv_codomain.E1, &theta, TORSION_EVEN_POWER);
-    time_inv += rdtsc() - tttmp;
+    //time_inv += rdtsc() - tttmp;
 
     assert(test_basis_order_twof(&bas2, &Fv_codomain.E1, TORSION_EVEN_POWER));
 
@@ -1071,7 +1071,8 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     ret = theta_chain_compute_and_eval_randomized(
         exp, &E01, &ker, false, &theta_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points));
     time_inv += rdtsc() - tttmp;
-        if (!ret) {
+    //printf("theta_chain_all: %lu\n", rdtsc()-tttmp);
+    if (!ret) {
         goto cleanup;
     }
 
@@ -1137,9 +1138,9 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     ibz_mul(&beta1->coord[2], &beta1->coord[2], &tmp);
     ibz_mul(&beta1->coord[3], &beta1->coord[3], &tmp);
 
-    tttmp = rdtsc();
+    //tttmp = rdtsc();
     endomorphism_application_even_basis(basis, 0, codomain, beta1, TORSION_EVEN_POWER);
-    time_inv += rdtsc() - tttmp;
+    //time_inv += rdtsc() - tttmp;
 
 // #ifndef NDEBUG
 //     {
@@ -1182,8 +1183,7 @@ cleanup:
     quat_alg_elem_finalize(&theta);
 
     time_all = rdtsc() - time_all;
-
-    printf("All: %ld, fix + chain: %ld\n", time_all, time_inv);
+    //printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
 
     return ret;
 }
@@ -1204,8 +1204,10 @@ dim2id2iso_arbitrary_isogeny_evaluation(ec_basis_t *basis, ec_curve_t *codomain,
     ibz_init(&d1);
     ibz_init(&d2);
 
+    //uint64_t tttmp = rdtsc();
     ret = dim2id2iso_ideal_to_isogeny_clapotis(
         &beta1, &beta2, &u, &v, &d1, &d2, codomain, basis, lideal, &QUATALG_PINFTY);
+    //printf("dim2id2iso_ideal_to_isogeny_clapotis: %lu\n", rdtsc()-tttmp);
 
     quat_alg_elem_finalize(&beta1);
     quat_alg_elem_finalize(&beta2);

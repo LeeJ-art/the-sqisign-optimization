@@ -129,7 +129,6 @@ lift_basis(jac_point_t *P, jac_point_t *Q, ec_basis_t *B, ec_curve_t *E)
     fp2_batched_inv(inverses, 2);
     fp2_set_one(&B->P.z);
     fp2_set_one(&E->C);
-
     fp2_mul(&B->P.x, &B->P.x, &inverses[0]);
     fp2_mul(&E->A, &E->A, &inverses[1]);
 
