@@ -45,38 +45,38 @@ bench_sqisign(uint64_t bench)
 
     printf("\n======================  KeyGen  ======================\n\n");
     
-    uint64_t p1t = 0, p2t = 0, p11 = 0, p12 = 0, p13 = 0;
-    for (uint64_t i = 0; i < bench; ++i) {
+    // uint64_t p1t = 0, p2t = 0, p11 = 0, p12 = 0, p13 = 0;
+    // for (uint64_t i = 0; i < bench; ++i) {
 
-        ec_basis_t B_0_two;
-        t0 = rdtsc();
-        protocols_keygen_p1(&pks[i], &sks[i], &B_0_two);
-        p1t += rdtsc() - t0;
+    //     ec_basis_t B_0_two;
+    //     t0 = rdtsc();
+    //     protocols_keygen_p1(&pks[i], &sks[i], &B_0_two);
+    //     p1t += rdtsc() - t0;
 
-        int found = 0;
-        while(!found){
-            t0 = rdtsc();
-            found = protocols_keygen_p11(&sks[i], &B_0_two, found);
-            p11 += rdtsc() - t0;
+    //     int found = 0;
+    //     while(!found){
+    //         t0 = rdtsc();
+    //         found = protocols_keygen_p11(&sks[i], &B_0_two, found);
+    //         p11 += rdtsc() - t0;
 
-            t0 = rdtsc();
-            found = protocols_keygen_p12(&sks[i], &B_0_two, found);
-            p12 += rdtsc() - t0;
+    //         t0 = rdtsc();
+    //         found = protocols_keygen_p12(&sks[i], &B_0_two, found);
+    //         p12 += rdtsc() - t0;
 
-            t0 = rdtsc();
-            found = protocols_keygen_p13(&sks[i], &B_0_two, found);
-            p13 += rdtsc() - t0;
-        }
+    //         t0 = rdtsc();
+    //         found = protocols_keygen_p13(&sks[i], &B_0_two, found);
+    //         p13 += rdtsc() - t0;
+    //     }
 
-        t0 = rdtsc();
-        protocols_keygen_p2(&pks[i], &sks[i], &B_0_two);
-        p2t += rdtsc() - t0;
-    }
-    printf("\x1b[34mAvg P1: %'" PRIu64 " cycles\x1b[0m\n", (p1t) / bench);
-    printf("\x1b[34mAvg P11: %'" PRIu64 " cycles\x1b[0m\n", (p11) / bench);
-    printf("\x1b[34mAvg P12: %'" PRIu64 " cycles\x1b[0m\n", (p12) / bench);
-    printf("\x1b[34mAvg P13: %'" PRIu64 " cycles\x1b[0m\n", (p13) / bench);
-    printf("\x1b[34mAvg P2: %'" PRIu64 " cycles\x1b[0m\n", (p2t) / bench);
+    //     t0 = rdtsc();
+    //     protocols_keygen_p2(&pks[i], &sks[i], &B_0_two);
+    //     p2t += rdtsc() - t0;
+    // }
+    // printf("\x1b[34mAvg P1: %'" PRIu64 " cycles\x1b[0m\n", (p1t) / bench);
+    // printf("\x1b[34mAvg P11: %'" PRIu64 " cycles\x1b[0m\n", (p11) / bench);
+    // printf("\x1b[34mAvg P12: %'" PRIu64 " cycles\x1b[0m\n", (p12) / bench);
+    // printf("\x1b[34mAvg P13: %'" PRIu64 " cycles\x1b[0m\n", (p13) / bench);
+    // printf("\x1b[34mAvg P2: %'" PRIu64 " cycles\x1b[0m\n", (p2t) / bench);
 
     for (uint64_t i = 0; i < bench; i++) {
         public_key_init(&pks[i]);

@@ -1767,10 +1767,29 @@ _theta_chain_compute_impl_randomized(unsigned n,
     //printf("theta_precomputation: %lu\n", rdtsc()-time);
 
     time = rdtsc();
-    theta_isogeny_t step;//, step_ref;
+    //uint64_t time_structure = rdtsc();
+    theta_isogeny_t step;
     // and now we do the remaining steps
-    for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
+    /*pre-check current cflag = 0 if current = -1, otherwise cflag = current*/
+    // int cflag = ((int)((uint32_t)current>>31u)-1)&current;
+    // uint32x4_t vecQ1[space][18], vecQ2[space][18], reCarry, imCarry;
+    // transpose(vecQ1[cflag], thetaQ1[cflag]);
+    // prop_2(vecQ1[cflag]);
+    // prop_2(vecQ1[cflag]);
+    // reCarry = div5(vecQ1[cflag]+8), imCarry = div5(vecQ1[cflag]+17);
+    // vecQ1[cflag][0] = vaddq_u32(vecQ1[cflag][0], reCarry);
+    // vecQ1[cflag][9] = vaddq_u32(vecQ1[cflag][9], imCarry);
+    // transpose(vecQ2[cflag], thetaQ2[cflag]);
+    // prop_2(vecQ2[cflag]);
+    // prop_2(vecQ2[cflag]);
+    // reCarry = div5(vecQ2[cflag]+8), imCarry = div5(vecQ2[cflag]+17);
+    // vecQ2[cflag][0] = vaddq_u32(vecQ2[cflag][0], reCarry);
+    // vecQ2[cflag][9] = vaddq_u32(vecQ2[cflag][9], imCarry);
+    
+    unsigned i;
+    for (i = 1; current >= 0 && todo[current]; ++i) {
         // assert(current < space);
+        time = rdtsc();
         while (todo[current] != 1) {
             // assert(todo[current] >= 2);
             ++current;
@@ -1781,8 +1800,11 @@ _theta_chain_compute_impl_randomized(unsigned n,
             // double_iter(&thetaQ2_ref[current], &theta, &thetaQ2[current - 1], num_dbls);
             double_iter_vec(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
             double_iter_vec(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
+            // double_iter_vec(&vecQ1[current], &theta, &vecQ1[current - 1], num_dbls);
+            // double_iter_vec(&vecQ2[current], &theta, &vecQ2[current - 1], num_dbls);
             todo[current] = todo[current - 1] - num_dbls;
         }
+        //printf("\tdb_iter: %lu\n", rdtsc()-time);
 
 
         // // computing the next step
@@ -1797,15 +1819,21 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // //printf("- Compute ref: %lu, ", rdtsc()-time);
         
         int ret;
-        // time = rdtsc();
+        time = rdtsc();
         if (i == n - 2) // penultimate step
+            /*step.hadamard_bool_1 = false*/
+            /*step.hadamard_bool_2 = false*/
             ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
         else if (i == n - 1) // ultimate step
+            /*step.hadamard_bool_1 = true*/
+            /*step.hadamard_bool_2 = false*/
             ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
         else
+            /*step.hadamard_bool_1 = false*/
+            /*step.hadamard_bool_2 = true*/
             ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
         
-        //printf("vec: %lu\n\n", rdtsc()-time);
+        //printf("\tvec: %lu\n", rdtsc()-time);
 
         // mont back
         fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
@@ -1818,70 +1846,76 @@ _theta_chain_compute_impl_randomized(unsigned n,
             return 0;
 
         /* strp CT in */
-        theta_point_t pts2[numP ? numP : 1];
+        //theta_point_t pts2[numP ? numP : 1];
 
         // printf(" - eval time:\n");
         
-        //time = rdtsc();
-        for (unsigned j = 0; j < numP; ++j){
-            theta_isogeny_eval(&pts2[j], &step, &pts[j]);
-        }
-        //time = rdtsc() - time;
-        //printf("\tRef: %lu\n", time);
+        // time = rdtsc();
+        // for (unsigned j = 0; j < numP; ++j){
+        //     theta_isogeny_eval(&pts2[j], &step, &pts[j]);
+        // }
+        // time = rdtsc() - time;
+        // printf("\tRef: %lu\n", time);
 
-        //uint64_t timeRef = rdtsc();
+        uint64_t timeRef = rdtsc();
         for (unsigned j = 0; j < numP; ++j){
             theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
         }
-        //timeRef = rdtsc() - timeRef;
+        timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
-
 
         //mul back
         fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
-
         /* adjust */
+        //timeRef = rdtsc();
         for(unsigned j = 0; j < numP; ++j){
             theta_montback(pts+j, &mb);
-            choose_small(pts2+j, pts+j);
+            //choose_small(pts2+j, pts+j);
         }
+        //printf("\tadjust_mb: %lu\n", rdtsc()-timeRef);
+
 
         // updating the codomain
         theta = step.codomain;
 
         // pushing the kernel
         /*assert(todo[current] == 1);*/
-        theta_point_t thetaQ1_2[space], thetaQ2_2[space];
+        //theta_point_t thetaQ1_2[space], thetaQ2_2[space];
         // printf(" - eval time2:\n");
 
-        //time = rdtsc();
-        for (int j = 0; j < current; ++j){
-            theta_isogeny_eval(&thetaQ1_2[j], &step, &thetaQ1[j]);
-            theta_isogeny_eval(&thetaQ2_2[j], &step, &thetaQ2[j]);
-        }
-        //time = rdtsc() - time;
-        // printf("\tRef: %lu\n", time);
+        // time = rdtsc();
+        // for (int j = 0; j < current; ++j){
+        //     theta_isogeny_eval(&thetaQ1_2[j], &step, &thetaQ1[j]);
+        //     theta_isogeny_eval(&thetaQ2_2[j], &step, &thetaQ2[j]);
+        // }
+        // time = rdtsc() - time;
+        //printf("\tRef: %lu\n", time);
         
-        //timeRef = rdtsc();
+        timeRef = rdtsc();
         for (int j = 0; j < current; ++j){
             theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
             theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
             /*assert(todo[j]);*/
             --todo[j];
         }
-        //timeRef = rdtsc() - timeRef;
-        // printf("\tNeon: %lu\n", timeRef);
+        timeRef = rdtsc() - timeRef;
+        //printf("\tNeon: %lu\n", timeRef);
 
+        timeRef = rdtsc();
         for(int j = 0; j < current; ++j){
             theta_montback(thetaQ1+j, &mb);
-            choose_small(thetaQ1_2+j, thetaQ1+j);
+            //choose_small(thetaQ1_2+j, thetaQ1+j);
             theta_montback(thetaQ2+j, &mb);
-            choose_small(thetaQ2_2+j, thetaQ2+j);
+            //choose_small(thetaQ2_2+j, thetaQ2+j);
         }
+        //printf("\tadjust_mb_2: %lu\n\n", rdtsc()-timeRef);
         
         --current;
     }
-    //printf("theta_structure: %lu\n", rdtsc()-time);
+    //printf("theta_structure: %lu\n", rdtsc()-time_structure);
+    //cflag = ((int)((uint32_t)current>>31u)-1)&current;
+    // printf(">>%d %d\n", current, cflag);
+    //itranspose(&thetaQ1[0], vecQ1[cflag]);
 
     /*assert(current == -1);*/
     time = rdtsc();

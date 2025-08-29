@@ -504,7 +504,6 @@ void double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point
             u32_montback(out_transpose, mb);
         }
         itranspose(out, out_transpose);
-          
     }
 }
 
