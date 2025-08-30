@@ -1071,7 +1071,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     ret = theta_chain_compute_and_eval_randomized(
         exp, &E01, &ker, false, &theta_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points));
     time_inv += rdtsc() - tttmp;
-    //printf("theta_chain_all: %lu\n", rdtsc()-tttmp);
+    printf("theta_chain_all: %lu\n", rdtsc()-tttmp);
     if (!ret) {
         goto cleanup;
     }
@@ -1183,7 +1183,7 @@ cleanup:
     quat_alg_elem_finalize(&theta);
 
     time_all = rdtsc() - time_all;
-    //printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
+    printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
 
     return ret;
 }
