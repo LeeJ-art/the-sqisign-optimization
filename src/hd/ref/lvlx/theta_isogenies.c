@@ -1427,6 +1427,41 @@ void choose_small(theta_point_t* a, theta_point_t* b){
     }
 }
 
+// void choose_big(theta_point_t* f, theta_point_t* r, theta_point_t* b){
+//     if([0].x.re[4] > b[0].x.re[4]){
+//         b[0].x.re[4] = a[0].x.re[4];
+//         b[0].x.re[0] = a[0].x.re[0];
+//     }
+//     if(a[0].x.im[4] > b[0].x.im[4]){
+//         b[0].x.im[4] = a[0].x.im[4];
+//         b[0].x.im[0] = a[0].x.im[0];
+//     }
+//     if(a[0].y.re[4] > b[0].y.re[4]){
+//         b[0].y.re[4] = a[0].y.re[4];
+//         b[0].y.re[0] = a[0].y.re[0];
+//     }
+//     if(a[0].y.im[4] > b[0].y.im[4]){
+//         b[0].y.im[4] = a[0].y.im[4];
+//         b[0].y.im[0] = a[0].y.im[0];
+//     }
+//     if(a[0].z.re[4] > b[0].z.re[4]){
+//         b[0].z.re[4] = a[0].z.re[4];
+//         b[0].z.re[0] = a[0].z.re[0];
+//     }
+//     if(a[0].z.im[4] > b[0].z.im[4]){
+//         b[0].z.im[4] = a[0].z.im[4];
+//         b[0].z.im[0] = a[0].z.im[0];
+//     }
+//     if(a[0].t.re[4] > b[0].t.re[4]){
+//         b[0].t.re[4] = a[0].t.re[4];
+//         b[0].t.re[0] = a[0].t.re[0];
+//     }
+//     if(a[0].t.im[4] > b[0].t.im[4]){
+//         b[0].t.im[4] = a[0].t.im[4];
+//         b[0].t.im[0] = a[0].t.im[0];
+//     }
+// }
+
 
 static int
 _theta_chain_compute_impl(unsigned n,
@@ -1908,27 +1943,33 @@ _theta_chain_compute_impl_randomized(unsigned n,
         mb32_3[i*9+8] = vdupq_n_u32(131072);
     }
 
+    theta_point_t fake_pts[numP ? numP: 1], rand_pts[numP ? numP: 1];
+    for (unsigned j = 0; j < numP; ++j){
+        fake_pts[j] =  pts[j];
+        rand_pts[j] =  pts[j];
+    }
+
     uint32x4_t vecPts[numP ? numP : 1][18];
     for (unsigned j = 0; j < numP; ++j){
         transpose(vecPts[j], pts[j]);
     }
 
-    unsigned i;
-    for (i = 1; current >= 0 && todo[current]; ++i) {
+    unsigned icount;
+    for (icount = 1; current >= 0 && todo[current]; ++icount) {
         // assert(current < space);
         time = rdtsc();
-        // transpose(vecQ1[current], thetaQ1[current]);
-        // prop_2(vecQ1[current]);
-        // prop_2(vecQ1[current]);
-        // reCarry = div5(vecQ1[current]+8), imCarry = div5(vecQ1[current]+17);
-        // vecQ1[current][0] = vaddq_u32(vecQ1[current][0], reCarry);
-        // vecQ1[current][9] = vaddq_u32(vecQ1[current][9], imCarry);
-        // transpose(vecQ2[current], thetaQ2[current]);
-        // prop_2(vecQ2[current]);
-        // prop_2(vecQ2[current]);
-        // reCarry = div5(vecQ2[current]+8), imCarry = div5(vecQ2[current]+17);
-        // vecQ2[current][0] = vaddq_u32(vecQ2[current][0], reCarry);
-        // vecQ2[current][9] = vaddq_u32(vecQ2[current][9], imCarry);
+        transpose(vecQ1[current], thetaQ1[current]);
+        prop_2(vecQ1[current]);
+        prop_2(vecQ1[current]);
+        reCarry = div5(vecQ1[current]+8), imCarry = div5(vecQ1[current]+17);
+        vecQ1[current][0] = vaddq_u32(vecQ1[current][0], reCarry);
+        vecQ1[current][9] = vaddq_u32(vecQ1[current][9], imCarry);
+        transpose(vecQ2[current], thetaQ2[current]);
+        prop_2(vecQ2[current]);
+        prop_2(vecQ2[current]);
+        reCarry = div5(vecQ2[current]+8), imCarry = div5(vecQ2[current]+17);
+        vecQ2[current][0] = vaddq_u32(vecQ2[current][0], reCarry);
+        vecQ2[current][9] = vaddq_u32(vecQ2[current][9], imCarry);
         int tcurrent = current;
         while (todo[current] != 1) {
             // assert(todo[current] >= 2);
@@ -1962,17 +2003,20 @@ _theta_chain_compute_impl_randomized(unsigned n,
         int ret;
         uint32x4_t step_codomain[18], step_precomputation[18];
         time = rdtsc();
-        if (i == n - 2) // penultimate step
+        if (icount == n - 2) // penultimate step
             /*step.hadamard_bool_1 = false*/
             /*step.hadamard_bool_2 = false*/
+            //ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
             ret = theta_isogeny_compute_vec_randomized(&step, step_codomain, step_precomputation, &theta, vecQ1[current], vecQ2[current], 0, 0);
-        else if (i == n - 1) // ultimate step
+        else if (icount == n - 1) // ultimate step
             /*step.hadamard_bool_1 = true*/
             /*step.hadamard_bool_2 = false*/
+            //ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, verify);
             ret = theta_isogeny_compute_vec_randomized(&step, step_codomain, step_precomputation, &theta, vecQ1[current], vecQ2[current], 1, 0);
         else
             /*step.hadamard_bool_1 = false*/
             /*step.hadamard_bool_2 = true*/
+            //ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
             ret = theta_isogeny_compute_vec_randomized(&step, step_codomain, step_precomputation, &theta, vecQ1[current], vecQ2[current], 0, 1);
         u32_montback(step_codomain, mb32_6);
         u32_montback(step_precomputation, mb32_6);
@@ -1984,41 +2028,171 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
         // theta_montback(&step.codomain.null_point, &montback);
         // theta_montback(&step.precomputation, &montback);
-        // choose_small(&step_ref.codomain.null_point, &step.codomain.null_point);
-        // choose_small(&step_ref.precomputation, &step.precomputation);
 
         if (!ret) return 0;
 
-        /* strp CT in */
-        //theta_point_t pts2[numP ? numP : 1];
-
-        // printf(" - eval time:\n");
-        
-        // time = rdtsc();
-        // for (unsigned j = 0; j < numP; ++j){
-        //     theta_isogeny_eval(&pts2[j], &step, &pts[j]);
-        // }
-        // time = rdtsc() - time;
-        // printf("\tRef: %lu\n", time);
-
         uint64_t timeRef = rdtsc();
+        fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
         for (unsigned j = 0; j < numP; ++j){
-            //theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
+            if (icount <= 1){
+                itranspose(rand_pts+j, vecPts[j]);
+                printf("\n----pts---\n");
+                for (unsigned z = 0; z < 5; z++){
+                    printf("%lu %lu %u %u %u", pts[j].x.re[z], rand_pts[j].x.re[z], icount, j, z);
+                    printf("\n");
+                }
+                printf("----precompute---\n");
+                itranspose(rand_pts+j, step_precomputation);
+                for (unsigned z = 0; z < 5; z++){
+                    printf("%lu %lu %u %u %u", step.precomputation.x.re[z], rand_pts[j].x.re[z], icount, j, z);
+                    printf("\n");  
+                }
+            }
+            printf("***********************************\n");
+            theta_isogeny_eval_vec(&fake_pts[j], &step, &pts[j]);
+            theta_montback(&fake_pts[j], &mb);
+            theta_point_t vp;
+            itranspose(&vp, vecPts[j]);
             theta_isogeny_eval_vec_randomized(vecPts[j], step_precomputation, &step);
             u32_montback(vecPts[j], mb32_3);
+            itranspose(&rand_pts[j], vecPts[j]);
+            for (unsigned z = 0; z < 5; z++){
+                if (rand_pts[j].x.re[z] != fake_pts[j].x.re[z]){
+                    printf("%lu %lu %u %u %u", fake_pts[j].x.re[z], rand_pts[j].x.re[z], icount, j, z);
+                    printf("\n\n");
+
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.x.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.x.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.y.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.y.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.z.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.z.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.t.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", vp.t.im[tpu]);
+                    }printf("\n");
+                    printf("-------pts------\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].x.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].x.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].y.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].y.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].z.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].z.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].t.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", pts[j].t.im[tpu]);
+                    }printf("\n");
+                    printf("-------precompute------\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.x.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.x.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.y.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.y.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.z.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.z.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.t.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", step.precomputation.t.im[tpu]);
+                    }printf("\n");
+                    printf("-----ref------\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].x.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].x.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].y.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].y.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].z.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].z.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].t.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", fake_pts[j].t.im[tpu]);
+                    }printf("\n");
+                    printf("-----res------\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].x.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].x.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].y.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].y.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].z.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].z.im[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].t.re[tpu]);
+                    }printf("\n");
+                    for (int tpu = 0; tpu<5; tpu++){
+                        printf("%lu ", rand_pts[j].t.im[tpu]);
+                    }printf("\n");
+                }
+            }
+
+            pts[j] = rand_pts[j];
+
         }
         timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
-
-        //mul back
-        //fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
-        // /* adjust */
-        // //timeRef = rdtsc();
-        // for(unsigned j = 0; j < numP; ++j){
-        //     theta_montback(pts+j, &mb);
-        //     //choose_small(pts2+j, pts+j);
-        // }
-        //printf("\tadjust_mb: %lu\n", rdtsc()-timeRef);
 
 
         // updating the codomain
@@ -2026,29 +2200,17 @@ _theta_chain_compute_impl_randomized(unsigned n,
 
         // pushing the kernel
         assert(todo[current] == 1);
-        //theta_point_t thetaQ1_2[space], thetaQ2_2[space];
-        // printf(" - eval time2:\n");
-
-        // time = rdtsc();
-        // for (int j = 0; j < current; ++j){
-        //     theta_isogeny_eval(&thetaQ1_2[j], &step, &thetaQ1[j]);
-        //     theta_isogeny_eval(&thetaQ2_2[j], &step, &thetaQ2[j]);
-        // }
-        // time = rdtsc() - time;
-        //printf("\tRef: %lu\n", time);
         
         timeRef = rdtsc();
         for (int j = 0; j < current; ++j){
-            // theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
-            // theta_montback(thetaQ1+j, &mb);
-            // theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
-            // theta_montback(thetaQ2+j, &mb);
-
-
-            theta_isogeny_eval_vec_randomized(vecQ1[j], step_precomputation, &step);
-            u32_montback(vecQ1[j], mb32_3);
-            theta_isogeny_eval_vec_randomized(vecQ2[j], step_precomputation, &step);
-            u32_montback(vecQ2[j], mb32_3);
+            theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
+            theta_montback(thetaQ1+j, &mb);
+            theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
+            theta_montback(thetaQ2+j, &mb);
+            // theta_isogeny_eval_vec_randomized(vecQ1[j], step_precomputation, &step);
+            // u32_montback(vecQ1[j], mb32_3);
+            // theta_isogeny_eval_vec_randomized(vecQ2[j], step_precomputation, &step);
+            // u32_montback(vecQ2[j], mb32_3);
 
             assert(todo[j]);
             --todo[j];
@@ -2056,25 +2218,15 @@ _theta_chain_compute_impl_randomized(unsigned n,
         timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
 
-        // timeRef = rdtsc();
-        // for(int j = 0; j < current; ++j){
-        //     theta_montback(thetaQ1+j, &mb);
-        //     //choose_small(thetaQ1_2+j, thetaQ1+j);
-        //     theta_montback(thetaQ2+j, &mb);
-        //     //choose_small(thetaQ2_2+j, thetaQ2+j);
-        // }
-        //printf("\tadjust_mb_2: %lu\n\n", rdtsc()-timeRef);
-        
-
         --current;
     }
     //printf("theta_structure: %lu\n", rdtsc()-time_structure);
-    cflag = ((int)((uint32_t)current>>31u)-1)&current;
-    itranspose(thetaQ1, vecQ1[cflag]);
-    itranspose(thetaQ2, vecQ2[cflag]);
-    for (unsigned j = 0; j < numP; ++j){
-        itranspose(pts+j, vecPts[j]);
-    }
+    // cflag = ((int)((uint32_t)current>>31u)-1)&current;
+    // itranspose(thetaQ1, vecQ1[cflag]);
+    // itranspose(thetaQ2, vecQ2[cflag]);
+    // for (unsigned j = 0; j < numP; ++j){
+    //     itranspose(pts+j, vecPts[j]);
+    // }
 
     /*assert(current == -1);*/
     time = rdtsc();
@@ -2383,7 +2535,7 @@ _theta_chain_compute_impl_randomized_partial(unsigned n,
         theta = step.codomain;
 
         // pushing the kernel
-        /*assert(todo[current] == 1);*/
+        assert(todo[current] == 1);
         //theta_point_t thetaQ1_2[space], thetaQ2_2[space];
         // printf(" - eval time2:\n");
 
@@ -2399,7 +2551,7 @@ _theta_chain_compute_impl_randomized_partial(unsigned n,
         for (int j = 0; j < current; ++j){
             theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
             theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
-            /*assert(todo[j]);*/
+            assert(todo[j]);
             --todo[j];
         }
         timeRef = rdtsc() - timeRef;
@@ -2512,5 +2664,5 @@ theta_chain_compute_and_eval_randomized(unsigned n,
 {
     printf("********************randomized********************\n");
     return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
-    //return _theta_chain_compute_impl_randomized_partial(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
+    // return _theta_chain_compute_impl_randomized_partial(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
 }
