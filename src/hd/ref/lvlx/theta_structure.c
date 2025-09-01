@@ -2,6 +2,35 @@
 #include <assert.h>
 #include <arm_neon.h>
 
+static uint32x4_t mb6[18] = {{429496729, 429496729, 429496729, 429496729},
+                            {3276, 3276, 3276, 3276},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {196608, 196608, 196608, 196608},
+                            {429496729, 429496729, 429496729, 429496729},
+                            {3276, 3276, 3276, 3276},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {0, 0, 0, 0},
+                            {196608, 196608, 196608, 196608}};
+static uint32x4_t q_sub[9] = {{536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},
+                              {536870911, 536870911, 536870911, 536870911},   
+                              {327679, 327679, 327679, 327679}};
+
+
 void
 theta_precomputation(theta_structure_t *A)
 {
@@ -457,24 +486,9 @@ void double_iter_vec_randomized(uint32x4_t *out, theta_structure_t *A, uint32x4_
         *out = *in;
     } else {
         /*Since exp is an uncertain variable, we require to montback to R each time.*/
-        uint32x4_t mb[18], q_sub[9];
-        for (int i=0; i<2; i++){
-            mb[i*9] = vdupq_n_u32(429496729);
-            mb[i*9+1] = vdupq_n_u32(3276);
-            mb[i*9+2] = vdupq_n_u32(0);
-            mb[i*9+3] = vdupq_n_u32(0);
-            mb[i*9+4] = vdupq_n_u32(0);
-            mb[i*9+5] = vdupq_n_u32(0);
-            mb[i*9+6] = vdupq_n_u32(0);
-            mb[i*9+7] = vdupq_n_u32(0);
-            mb[i*9+8] = vdupq_n_u32(196608);
-        }
-        for(int i = 0;i<8;i++) q_sub[i] = vdupq_n_u32(0x1fffffff);
-        q_sub[8] = vdupq_n_u32(0x4ffff);
-
         /*double_point_vec*/
         double_point_vec_optimized_randomized(out, in, A, q_sub);
-        u32_montback(out, mb);
+        u32_montback(out, mb6);
         /*Since it has done one precomputation here, A never be changed.*/
         uint32x4_t A32[36];
         theta_point_t A_theta[2];
@@ -484,7 +498,7 @@ void double_iter_vec_randomized(uint32x4_t *out, theta_structure_t *A, uint32x4_
         for (int i = 1; i < exp; i++) {
             double_point_vec_optimized_withPrecompute_randomized(out, A32, q_sub);
             //here should be do lazy montback
-            u32_montback(out, mb);
+            u32_montback(out, mb6);
         }
     }
 }
@@ -599,24 +613,9 @@ void double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point
         out_transpose[9] = vaddq_u32(out_transpose[9], imCarry);
 
         /*Since exp is an uncertain variable, we require to montback to R each time.*/
-        uint32x4_t mb[18], q_sub[9];
-        for (int i=0; i<2; i++){
-            mb[i*9] = vdupq_n_u32(429496729);
-            mb[i*9+1] = vdupq_n_u32(3276);
-            mb[i*9+2] = vdupq_n_u32(0);
-            mb[i*9+3] = vdupq_n_u32(0);
-            mb[i*9+4] = vdupq_n_u32(0);
-            mb[i*9+5] = vdupq_n_u32(0);
-            mb[i*9+6] = vdupq_n_u32(0);
-            mb[i*9+7] = vdupq_n_u32(0);
-            mb[i*9+8] = vdupq_n_u32(196608);
-        }
-        for(int i = 0;i<8;i++) q_sub[i] = vdupq_n_u32(0x1fffffff);
-        q_sub[8] = vdupq_n_u32(0x4ffff);
-
         /*double_point_vec*/
         double_point_vec_optimized(out_transpose, A, q_sub);
-        u32_montback(out_transpose, mb);
+        u32_montback(out_transpose, mb6);
         /*Since it has done one precomputation here, A never be changed.*/
         uint32x4_t A32[36];
         theta_point_t A_theta[2];
@@ -625,7 +624,7 @@ void double_iter_vec(theta_point_t *out, theta_structure_t *A, const theta_point
         transpose(A32+18, A_theta[1]);
         for (int i = 1; i < exp; i++) {
             double_point_vec_optimized_withPrecompute(out_transpose, A32, q_sub);
-            u32_montback(out_transpose, mb);
+            u32_montback(out_transpose, mb6);
         }
         itranspose(out, out_transpose);
     }

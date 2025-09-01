@@ -1183,7 +1183,7 @@ cleanup:
     quat_alg_elem_finalize(&theta);
 
     time_all = rdtsc() - time_all;
-    printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
+    //printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
 
     return ret;
 }
