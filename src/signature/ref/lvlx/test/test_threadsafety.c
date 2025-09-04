@@ -18,7 +18,7 @@ void *
 test_sqisign(void *_)
 {
     (void)_;
-    uint64_t ttime[2] = {0};
+    uint64_t ttime[7] = {0};
 
     bool res = 1;
 

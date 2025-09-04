@@ -37,7 +37,7 @@ sqisign_sign(unsigned char *sm,
     public_key_t pkt = { 0 };
     signature_t sigt;
 
-    uint64_t ttime[2] = {0};
+    uint64_t ttime[7] = {0};
 
     secret_key_init(&skt);
     secret_key_from_bytes(&skt, &pkt, sk);

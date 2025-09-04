@@ -129,6 +129,84 @@ apply_isomorphism_general(theta_point_t *res,
     fp2_copy(&res->t, &temp.t);
 }
 
+
+//True
+void apply_isomorphism_vec_1(uint32x4_t* res, uint32x4_t (*mm)[18], uint32x4_t *ax){
+    uint32x4_t tmp[18];
+    
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 0);
+    fp2_mul_batched(res, mm[0], tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 1);
+    fp2_mul_batched(tmp, mm[1], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 2);
+    fp2_mul_batched(tmp, mm[2], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 3);
+    fp2_mul_batched(tmp, mm[3], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    // reduce
+    prop_2(res);
+    prop_2(res+9);
+    uint32x4_t reCarry = div5(res+8), imCarry = div5(res+17);
+    res[0] = vaddq_u32(res[0], reCarry);
+    res[9] = vaddq_u32(res[9], imCarry);
+}
+
+//False
+void apply_isomorphism_vec_2(uint32x4_t* res, uint32x4_t (*mm)[18], uint32x4_t *ax){
+    uint32x4_t tmp[18];
+    
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 0);
+    fp2_mul_batched(res, mm[0], tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 1);
+    fp2_mul_batched(tmp, mm[1], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 2);
+    fp2_mul_batched(tmp, mm[2], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    // reduce
+    prop_2(res);
+    prop_2(res+9);
+    uint32x4_t reCarry = div5(res+8), imCarry = div5(res+17);
+    res[0] = vaddq_u32(res[0], reCarry);
+    res[9] = vaddq_u32(res[9], imCarry);
+}
+
+
+static inline void apply_isomorphism_vec_with_true(uint32x4_t* res, uint32x4_t (*mm)[18], uint32x4_t *ax){
+    uint32x4_t tmp[18];
+    
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 0);
+    fp2_mul_batched(res, mm[0], tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 1);
+    fp2_mul_batched(tmp, mm[1], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 2);
+    fp2_mul_batched(tmp, mm[2], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    for (int i=0; i<18; i++) tmp[i] = vdupq_laneq_u32(ax[i], 3);
+    fp2_mul_batched(tmp, mm[3], tmp);
+    fp2_add_batched(res, res, tmp);
+
+    // reduce
+    prop_2(res);
+    prop_2(res+9);
+    uint32x4_t reCarry = div5(res+8), imCarry = div5(res+17);
+    res[0] = vaddq_u32(res[0], reCarry);
+    res[9] = vaddq_u32(res[9], imCarry);
+}
+
 static void
 apply_isomorphism(theta_point_t *res, const basis_change_matrix_t *M, const theta_point_t *P)
 {
@@ -174,6 +252,29 @@ base_change(theta_point_t *out, const theta_gluing_t *phi, const theta_couple_po
 
     // Apply the basis change
     apply_isomorphism(out, &phi->M, &null_point);
+}
+
+static void base_change_vec(uint32x4_t *out, const theta_couple_point_t *T, uint32x4_t (*mm)[18])
+{
+    // null_point = (a : b : c : d)
+    // a = P1.x P2.x, b = P1.x P2.z, c = P1.z P2.x, d = P1.z P2.z
+    /* 矩陣乘法 */
+    theta_point_t tp;
+    uint32x4_t p1[18], p2[18];
+    tp.x = T->P1.x;
+    tp.y = T->P1.x;
+    tp.z = T->P1.z;
+    tp.t = T->P1.z;
+    transpose(p1, tp);
+    tp.x = T->P2.x;
+    tp.y = T->P2.z;
+    tp.z = T->P2.x;
+    tp.t = T->P2.z;
+    transpose(p2, tp);
+    fp2_mul_batched(p1, p1, p2);
+
+    // Apply the basis change
+    apply_isomorphism_vec_with_true(out, mm, p1);
 }
 
 static void
@@ -574,11 +675,389 @@ gluing_eval_point(theta_point_t *image, const theta_couple_jac_point_t *P, const
     hadamard(image, image);
 }
 
-static void gluing_eval_point_vec(theta_point_t *imageA, const theta_couple_jac_point_t *PA,
-                                theta_point_t *imageB, const theta_couple_jac_point_t *PB, 
-                                const theta_gluing_t *phi)
-{
 
+void jac_to_xz_add_components_vec(uint32x4_t* ucomp, uint32x4_t* vcomp, uint32x4_t* wcomp,
+                                const jac_point_t *P1, 
+                                const jac_point_t *Q1, const ec_curve_t *AC1,
+                                const jac_point_t *P2, 
+                                const jac_point_t *Q2, const ec_curve_t *AC2,
+                                const jac_point_t *P3,
+                                const jac_point_t *P4)
+{
+    // Take P and Q in E distinct, two jac_point_t, return three components u,v and w in Fp2 such
+    // that the xz coordinates of P+Q are (u-v:w) and of P-Q are (u+v:w)
+    theta_point_t tp;
+    uint32x4_t ax[18], az[18], tr1[18], tr2[18], tr3[18], tr4[18];
+    uint32x4_t ts0[18], ts1[18], ts2[18], ts3[18], ts4[18], ts5[18];
+
+    uint32x4_t reCarry, imCarry;
+
+    tp.x = Q1->z;
+    tp.y = Q2->z;
+    tp.z = P1->z;
+    tp.t = P2->z;
+    transpose(tr1, tp); //tr1 = [z2, Z2, z1, Z1]
+    tp.x = P3->z;
+    tp.y = P4->z;
+    tp.z = P1->x;
+    tp.t = P2->x;
+    transpose(tr2, tp); //tr2 = [z3, Z3, x1, X1]
+    tp.x = P3->x;
+    tp.y = P4->x;
+    tp.z = Q1->x;
+    tp.t = Q2->x;
+    transpose(tr3, tp); //tr3 = [x3, X3, x2, X2]
+    tp.x = P3->y;
+    tp.y = P4->y;
+    tp.z = Q1->y;
+    tp.t = Q2->y;
+    transpose(tr4, tp); //tr4 = [y3, Y3, y2, Y2]
+
+
+    // fp2_sqr(&t0, &P1->z);             // t0 = z1^2
+    // fp2_sqr(&T0, &P2->z);             // T0 = Z1^2
+    // fp2_sqr(&s0, &P3->z);             // s0 = z3^2
+    // fp2_sqr(&S0, &P4->z);             // S0 = Z3^2
+    for (int i=0; i<18; i++) az[i] = vextq_u32(tr1[i], tr2[i], 2); //[z1, Z1, z3, Z3]
+    fp2_sqr_batched(ts0, az); //[t0, T0, s0, S0] = [z1^2, Z1^2, z3^2, Z3^2] * R^{-1}
+
+    // fp2_sqr(&t1, &Q1->z);             // t1 = z2^2
+    // fp2_sqr(&T1, &Q2->z);             // T1 = Z2^2
+    // fp2_sqr(&s1, &Q1->z);             // s1 = z2^2
+    // fp2_sqr(&S1, &Q2->z);             // S1 = Z2^2
+    for (int i=0; i<18; i++) { tr1[i][2] = tr1[i][0]; tr1[i][3] = tr1[i][1];} //[z2, Z2, z2, Z2]
+    fp2_sqr_batched(ts1, tr1); //[t1, T1, s1, S1] = [z2^2, Z2^2, z2^2, Z2^2] * R^{-1}
+
+    // fp2_mul(&t2, &P1->x, &t1);        // t2 = x1z2^2
+    // fp2_mul(&T2, &P2->x, &T1);        // T2 = X1Z2^2
+    // fp2_mul(&s2, &P3->x, &s1);        // s2 = x3z2^2
+    // fp2_mul(&S2, &P4->x, &S1);        // S2 = X3Z2^2
+    for (int i=0; i<18; i++) ax[i] = vextq_u32(tr2[i], tr3[i], 2); //[x1, X1, x3, X3]
+    fp2_mul_batched(ts2, ax, ts1); // [t2, T2, s2, S2] = [x1z2^2, X1Z2^2, x3z2^2, X3Z2^2] * R^{-1}
+    
+    // fp2_mul(&t3, &Q1->x, &t0);        // t3 = x2z1^2
+    // fp2_mul(&T3, &Q2->x, &T0);        // T3 = X2Z1^2
+    // fp2_mul(&s3, &Q1->x, &s0);        // s3 = x2z3^2
+    // fp2_mul(&S3, &Q2->x, &S0);        // S3 = X2Z3^2
+    for (int i=0; i<18; i++){ tr3[i][0] = tr3[i][2]; tr3[i][1] = tr3[i][3]; } //[x2, X2, x2, X2]
+    fp2_mul_batched(ts3, tr3, ts0); // [t3, T3, s3, S3] = [x2z1^2, X2Z1^2, x2z3^2, X2Z3^2] * R^{-1}
+
+
+    // fp2_mul(&t4, &P1->y, &Q1->z);      // t4 = y1z2
+    // fp2_mul(&T4, &P2->y, &Q2->z);      // T4 = Y1Z2
+    // fp2_mul(&s4, &P3->y, &Q1->z);      // s4 = y3z2
+    // fp2_mul(&S4, &P4->y, &Q2->z);      // S4 = Y3Z2
+    tp.x = AC1->A;
+    tp.y = AC2->A;
+    tp.z = P1->y;
+    tp.t = P2->y;
+    transpose(tr2, tp); //[AC1A, AC2A, y1, Y1]
+    for (int i=0; i<18; i++) ax[i] = vextq_u32(tr2[i], tr4[i], 2); //[y1, Y1, y3, Y3]
+    fp2_mul_batched(ts4, ax, tr1); //[t4, T4, s4, S4] = [y1z2, Y1Z2, y3z2, Y3Z2] * R^{-1}
+
+    // fp2_mul(&t5, &P1->z, &Q1->y);      // t5 = z1y2
+    // fp2_mul(&T5, &P2->z, &Q2->y);      // T5 = Z1Y2
+    // fp2_mul(&s5, &P3->z, &Q1->y);      // s5 = z3y2
+    // fp2_mul(&S5, &P4->z, &Q2->y);      // S5 = Z3Y2
+    for (int i=0; i<18; i++){ tr4[i][0] = tr4[i][2]; tr4[i][1] = tr4[i][3]; } //[y2, Y2, y2, Y2]
+    fp2_mul_batched(ts5, az, tr4); //[t5, T5, s5, S5] = [z1y2, Z1Y2, z3y2, Z3Y2] * R^{-1}
+
+    // fp2_mul(&t5, &t5, &t0);          // t5 = z1^3y2
+    // fp2_mul(&T5, &T5, &T0);          // T5 = Z1^3Y2
+    // fp2_mul(&s5, &s5, &s0);          // s5 = z3^3y2
+    // fp2_mul(&S5, &S5, &S0);          // S5 = Z3^3Y2
+    //[t5, T5, s5, S5] * [t0, T0, s0, S0]
+    fp2_mul_batched(ts5, ts5, ts0);     // [z1^3y2, Z1^3Y2, z3^3y2, Z3^3Y2] * R^{-1}
+    // fp2_mul(&t4, &t4, &t1);          // t4 = y1z2^3
+    // fp2_mul(&T4, &T4, &T1);          // T4 = Y1Z2^3
+    // fp2_mul(&s4, &s4, &s1);          // s4 = y3z2^3
+    // fp2_mul(&S4, &S4, &S1);          // S4 = Y3Z2^3
+    //[t4, T4, s4, S4] * [t1, T1, s1, S1]
+    fp2_mul_batched(ts4, ts4, ts1);     // [y1z2^3, Y1Z2^3, y3z2^3, Y3Z2^3] * R^{-1}
+
+    //fp2_mul(&t0, &t0, &t1);          // t0 = (z1z2)^2
+    //fp2_mul(&T0, &T0, &T1);          // T0 = (Z1Z2)^2
+    //fp2_mul(&s0, &s0, &s1);          // s0 = (z3z2)^2
+    //fp2_mul(&S0, &S0, &S1);          // S0 = (Z3Z2)^2
+    fp2_mul_batched(ts0, ts0, ts1);    // [(z1z2)^2, (Z1Z2)^2, (z3z2)^2, (Z3Z2)^2] * R^{-1}
+    //fp2_mul(&t6, &t4, &t5);          // t6 = (z1z_2)^3y1y2
+    //fp2_mul(&T6, &T4, &T5);          // T6 = (Z1Z_2)^3Y1Y2
+    //fp2_mul(&s6, &s4, &s5);          // s6 = (z3z_4)^3y3y4
+    //fp2_mul(&S6, &S4, &S5);          // S6 = (Z3Z_4)^3Y3Y4
+    fp2_mul_batched(az, ts4, ts5);     //[t6, T6, s6, S6] = [(z1z2)^3y1y2, (Z1Z2)^3Y1Y2, (z3z2)^3y2y3, (Z3Z2)^3Y2Y3] * R^{-1}
+
+    // fp2_sqr(&t4, &t4);               // t4 = y1^2z2^6
+    // fp2_sqr(&T4, &T4);               // T4 = Y1^2Z2^6
+    // fp2_sqr(&s4, &s4);               // s4 = y3^2z2^6
+    // fp2_sqr(&S4, &S4);               // S4 = Y3^2z2^6
+    fp2_sqr_batched(ts4, ts4);  //[t4, t4, s4, S4] = [[y1^2z2^6, Y1^2Z2^6, y3^2z2^6, Y3^2Z2^6] * R^{-1}
+
+    // fp2_sqr(&t5, &t5);               // t5 = z1^6y2^2
+    // fp2_sqr(&T5, &T5);               // T5 = Z1^6Y2^2
+    // fp2_sqr(&s5, &s5);               // s5 = z3^6y2^2
+    // fp2_sqr(&S5, &S5);               // S5 = Z3^6Y2^2
+    fp2_sqr_batched(ts5, ts5);  //[t5, T5, s5, S5] = [z1^6y2^2, Z1^6Y2^2, z3^6y2^2, Z3^6Y2^2] * R^{-1}
+
+    // fp2_add(&t4, &t4, &t5);          // t4 = z1^6y2^2 + z2^6y1^2
+    // fp2_add(&T4, &T4, &T5);          // T4 = Z1^6Y2^2 + Z2^6Y1^2
+    // fp2_add(&s4, &s4, &s5);          // s4 = z3^6y2^2 + z2^6y3^2
+    // fp2_add(&S4, &S4, &S5);          // S4 = Z3^6Y2^2 + Z2^6Y3^2
+    fp2_add_batched(ts4, ts4, ts5);     //[t4, T4, s4, S4] = [z1^6y2^2 + z2^6y1^2, Z1^6Y2^2 + Z2^6Y1^2, z3^6y2^2 + z2^6y3^2, Z3^6Y2^2 + Z2^6Y3^2] * R^{-1}
+    // fp2_add(&t5, &t2, &t3);          // t5 = x1z2^2 + x2z1^2
+    // fp2_add(&T5, &T2, &T3);          // T5 = X1Z2^2 + X2Z1^2
+    // fp2_add(&s5, &s2, &s3);          // s5 = x3z2^2 + x2z3^2
+    // fp2_add(&S5, &S2, &S3);          // S5 = X3Z2^2 + X2Z3^2
+    fp2_add_batched(ts5, ts2, ts3);     //[t5, T5, s5, S5] = [x1z2^2 + x2z1^2, X1Z2^2 + X2Z1^2, x3z2^2 + x2z3^2, X3Z2^2 + X2Z3^2] * R^{-1}
+
+    // fp2_add(&add_comp1->v, &t6, &t6); // v  = 2(z1z2)^3y1y2
+    // fp2_add(&add_comp2->v, &T6, &T6); // v  = 2(Z1Z2)^3Y1Y2
+    // fp2_add(&add_comp3->v, &s6, &s6); // v  = 2(z3z2)^3y2y3
+    // fp2_add(&add_comp4->v, &S6, &S6); // v  = 2(Z3Z2)^3Y2Y3
+    fp2_add_batched(vcomp, az, az);   //[2(z1z2)^3y1y2, 2(Z1Z2)^3Y1Y2, 2(z3z2)^3y2y3, 2(Z3Z2)^3Y2Y3] * R^{-1}
+    prop_2(vcomp);
+    prop_2(vcomp+9);
+    reCarry = div5(vcomp+8), imCarry = div5(vcomp+17);
+    vcomp[0] = vaddq_u32(vcomp[0], reCarry);
+    vcomp[9] = vaddq_u32(vcomp[9], imCarry);
+
+    // fp2_add(&t6, &t3, &t3);          // t6 = 2x2z1^2
+    // fp2_add(&T6, &T3, &T3);          // T6 = 2X2Z1^2
+    // fp2_add(&s6, &s3, &s3);          // s6 = 2x2z3^2
+    // fp2_add(&S6, &S3, &S3);          // S6 = 2X2Z3^2
+    fp2_add_batched(ts3, ts3, ts3);     //[t6, T6, s6, S6] = [2x2z1^2, 2X2Z1^2, 2x2z3^2, 2X2Z3^2] * R^{-1}
+
+
+    // fp2_mul(&t1, &AC1->A, &t0);       // t1 = A1*(z1z2)^2
+    // fp2_mul(&T1, &AC2->A, &T0);       // t1 = A2*(Z1Z2)^2
+    // fp2_mul(&s1, &AC1->A, &s0);       // s1 = A1*(z3z2)^2
+    // fp2_mul(&S1, &AC2->A, &S0);       // S1 = A2*(Z3z2)^2
+    for (int i=0; i<18; i++){ tr2[i][2] = tr2[i][0]; tr2[i][3] = tr2[i][1]; }//[AC1, AC2, AC1, AC2]
+    fp2_mul_batched(ts1, tr2, ts0);      // [t1, T1, s1, S1] = [A1*(z1z2)^2, A2*(Z1Z2)^2, A1*(z3z2)^2, A2*(Z3Z2)^2] * R^{-1}
+
+
+    //fp2_add(&t1, &t5, &t1);          // t1 = gamma =A*(z1z2)^2 + x1z2^2 + x2z1^2
+    //fp2_add(&T1, &T5, &T1);          // T1 = Gamma =A*(Z1Z2)^2 + X1Z2^2 + X2Z1^2
+    //fp2_add(&s1, &s5, &s1);          // s1 = gamma =A*(z3z2)^2 + x3z2^2 + x2z3^2
+    //fp2_add(&S1, &S5, &S1);          // S1 = Gamma =A*(Z3Z2)^2 + X3Z2^2 + X2Z3^2
+    fp2_add_batched(ts1, ts5, ts1);  //[A*(z1z2)^2 + x1z2^2 + x2z1^2, A*(Z1Z2)^2 + X1Z2^2 + X2Z1^2, A*(z3z2)^2 + x3z2^2 + x2z3^2, A*(Z3Z2)^2 + X3Z2^2 + X2Z3^2] * R^{-1}
+
+    // fp2_sub(&t6, &t5, &t6);          // t6 = lambda = x1z2^2 - x2z1^2
+    // fp2_sub(&T6, &T5, &T6);          // t6 = Lambda = X1Z2^2 - X2Z1^2
+    // fp2_sub(&s6, &s5, &s6);          // s6 = lambda = x3z2^2 - x2z3^2
+    // fp2_sub(&S6, &S5, &S6);          // S6 = Lambda = X3Z2^2 - X2Z3^2
+    fp2_sub_batched(ts3, ts5, ts3); //[t6, T6, s6, S6] = [x1z2^2 - x2z1^2, X1Z2^2 - X2Z1^2, x3z2^2 - x2z3^2, X3Z2^2 - X2Z3^2] * R^{-1}
+    prop_2(ts3);
+    prop_2(ts3+9);
+    reCarry = div5(ts3+8), imCarry = div5(ts3+17);
+    ts3[0] = vaddq_u32(ts3[0], reCarry);
+    ts3[9] = vaddq_u32(ts3[9], imCarry);
+
+    // fp2_sqr(&t6, &t6);               // t6 = lambda^2 = (x1z2^2 - x2z1^2)^2
+    // fp2_sqr(&T6, &T6);               // T6 = Lambda^2 = (X1Z2^2 - X2Z1^2)^2
+    // fp2_sqr(&s6, &s6);               // s6 = lambda^2 = (x3z2^2 - x2z3^2)^2
+    // fp2_sqr(&S6, &S6);               // S6 = Lambda^2 = (X3Z2^2 - X2Z3^2)^2
+    fp2_sqr_batched(ts3, ts3);  //[(x1z2^2 - x2z1^2)^2, (X1Z2^2 - X2Z1^2)^2, (x3z2^2 - x2z3^2)^2, (X3Z2^2 - X2Z3^2)^2] * R^{-1}
+
+
+    // fp2_mul(&add_comp1->w, &t6, &t0); // w  = (z1z2)^2(lambda)^2
+    // fp2_mul(&add_comp2->w, &T6, &T0); // w  = (Z1Z2)^2(Lambda)^2
+    // fp2_mul(&add_comp3->w, &s6, &s0); // w  = (z3z2)^2(lambda)^2
+    // fp2_mul(&add_comp4->w, &S6, &S0); // w  = (Z3Z2)^2(Lambda)^2
+    fp2_mul_batched(wcomp, ts3, ts0); //[(z1z2)^2(lambda)^2, (Z1Z2)^2(Lambda)^2, (z3z2)^2(lambda)^2, (Z3Z2)^2(Lambda)^2] * R^{-1}
+
+    // fp2_mul(&t1, &t1, &t6);          // t1 = gamma*lambda^2
+    // fp2_mul(&T1, &T1, &T6);          // T1 = Gamma*Lambda^2
+    // fp2_mul(&s1, &s1, &s6);          // s1 = gamma*lambda^2
+    // fp2_mul(&S1, &S1, &S6);          // S1 = Gamma*Lambda^2
+    fp2_mul_batched(ts1, ts1, ts3);  // [gamma*lambda^2, Gamma*Lambda^2, gamma(lambda)^2, Gamma(Lambda)^2] * R^{-1}
+
+    // fp2_sub(&add_comp1->u, &t4, &t1); // u1  = z1^6y2^2 + z2^6y1^2 - gamma*lambda^2
+    // fp2_sub(&add_comp2->u, &T4, &T1); // u2  = Z1^6Y2^2 + Z2^6Y1^2 - Gamma*Lambda^2
+    // fp2_sub(&add_comp3->u, &s4, &s1); // u3  = z3^6y2^2 + z2^6y3^2 - gamma*lambda^2
+    // fp2_sub(&add_comp4->u, &S4, &S1); // u4  = Z3^6Y2^2 + Z2^6Y3^2 - Gamma*Lambda^2
+    fp2_sub_batched(ucomp, ts4, ts1);
+    prop_2(ucomp);
+    prop_2(ucomp+9);
+    reCarry = div5(ucomp+8), imCarry = div5(ucomp+17);
+    ucomp[0] = vaddq_u32(ucomp[0], reCarry);
+    ucomp[9] = vaddq_u32(ucomp[9], imCarry);
+}
+
+static void gluing_eval_point_vec(uint32x4_t *iA32, uint32x4_t *iB32, const theta_couple_jac_point_t *PA,
+                                 const theta_couple_jac_point_t *PB, const theta_gluing_t *phi, uint32x4_t (*mm)[18], uint32x4_t *imageK1_8yx)
+{
+    uint32x4_t ucomp[18], vcomp[18], wcomp[18];
+    uint32x4_t reCarry, imCarry;
+
+    // Compute the cross addition components of P1+Q1 and P2+Q2
+    jac_to_xz_add_components_vec(ucomp, vcomp, wcomp,
+                                &PA->P1, &phi->xyK1_8.P1, &phi->domain.E1, 
+                                &PA->P2, &phi->xyK1_8.P2, &phi->domain.E2,
+                                &PB->P1, &PB->P2);
+    //ucomp = [add_comp1.u, add_comp2.u, add_comp3.u, add_comp4.u]
+    //vcomp = [add_comp1.v, add_comp2.v, add_comp3.v, add_comp4.v]
+    //wcomp = [add_comp1.w, add_comp2.w, add_comp3.w, add_comp4.w]
+
+    // Compute T1 and T2 derived from the cross addition components.
+    uint32x4_t a32[18], b32[18], c32[18];
+    uint32x4_t r1[18], r2[18], r3[18], r4[18];
+    for (int i=0; i<18; i++){
+        a32[i][0] = ucomp[i][0];
+        a32[i][1] = ucomp[i][2];
+        a32[i][2] = ucomp[i][0];
+        a32[i][3] = wcomp[i][0];
+        b32[i][0] = ucomp[i][1];
+        b32[i][1] = ucomp[i][3];
+        b32[i][2] = wcomp[i][1];
+        b32[i][3] = ucomp[i][1];
+    }
+    fp2_mul_batched(r1, a32, b32);  //[T1x = u1u2, T3x = u3u4, T1y = u1w2, T1z = w1u2]
+
+    // Compute T1 and T2 derived from the cross addition components.
+    for (int i=0; i<18; i++){
+        a32[i][0] = vcomp[i][0];
+        a32[i][1] = vcomp[i][2];
+        a32[i][2] = ucomp[i][2];
+        a32[i][3] = wcomp[i][2];
+        b32[i][0] = vcomp[i][1];
+        b32[i][1] = vcomp[i][3];
+        b32[i][2] = wcomp[i][3];
+        b32[i][3] = ucomp[i][3];
+    }
+    fp2_mul_batched(r2, a32, b32);  //[T2t = v1v2, T4t = v3v4, T3y = u3w4, T3z = w3u4]
+
+    fp2_add_batched(c32, r1, r2);  //[T1x = u1u2 + v1v2, T3x = u3u4 + v3v4]
+
+    fp2_add_batched(r3, ucomp, vcomp);  //[T2x = (u1+v1), T2y = (u2+v2), T4x = (u3+v3), T4y = (u4+v4)]
+
+    // T2x = (u1+v1)(u2+v2)
+    // T4x = (u3+v3)(u4+v4)
+    // T1t = w1w2
+    // T3t = w3w4
+    for (int i=0; i<18; i++){
+        a32[i][0] = r3[i][0];
+        a32[i][1] = r3[i][2];
+        a32[i][2] = wcomp[i][0];
+        a32[i][3] = wcomp[i][2];
+        b32[i][0] = r3[i][1];
+        b32[i][1] = r3[i][3];
+        b32[i][2] = wcomp[i][1];
+        b32[i][3] = wcomp[i][3];
+    }
+    fp2_mul_batched(r4, a32, b32);
+
+
+    //premutation to the correct position
+    for (int i=0; i<18; i++){
+        //T1
+        r1[i][0] = c32[i][0];
+        r1[i][1] = r1[i][2];
+        r1[i][2] = r1[i][3];
+        r1[i][3] = r4[i][2];
+        //T3
+        r3[i][0] = c32[i][1];
+        r3[i][1] = r2[i][2];
+        r3[i][2] = r2[i][3];
+        r3[i][3] = r4[i][3];
+    }
+    //reduce
+    prop_2(r1);
+    prop_2(r1+9);
+    reCarry = div5(r1+8), imCarry = div5(r1+17);
+    r1[0] = vaddq_u32(r1[0], reCarry);
+    r1[9] = vaddq_u32(r1[9], imCarry);
+    //reduce
+    prop_2(r3);
+    prop_2(r3+9);
+    reCarry = div5(r3+8), imCarry = div5(r3+17);
+    r3[0] = vaddq_u32(r3[0], reCarry);
+    r3[9] = vaddq_u32(r3[9], imCarry);
+
+    // T2x = v1u2 + u1v2
+    // T4x = v3u4 + u3v4
+    fp2_sub_batched(r4, r4, c32);
+    
+    // T2y = v1w2
+    // T2z = w1v2
+    // T4y = v3w4
+    // T4z = w3v4
+    for (int i=0; i<18; i++){
+        a32[i][0] = vcomp[i][0];
+        a32[i][1] = wcomp[i][0];
+        a32[i][2] = vcomp[i][2];
+        a32[i][3] = wcomp[i][2];
+        b32[i][0] = wcomp[i][1];
+        b32[i][1] = vcomp[i][1];
+        b32[i][2] = wcomp[i][3];
+        b32[i][3] = vcomp[i][3];
+    }
+    fp2_mul_batched(a32, a32, b32);
+    
+    // T2t = 0
+    // T2t = 0
+    for (int i=0; i<18; i++){
+        //T2
+        r2[i][0] = r4[i][0];
+        r2[i][1] = a32[i][0];
+        r2[i][2] = a32[i][1];
+        r2[i][3] = 0;
+        //T4
+        r4[i][0] = r4[i][1];
+        r4[i][1] = a32[i][2];
+        r4[i][2] = a32[i][3];
+        r4[i][3] = 0;
+    }
+    //reduce
+    prop_2(r2);
+    prop_2(r2+9);
+    reCarry = div5(r2+8), imCarry = div5(r2+17);
+    r2[0] = vaddq_u32(r2[0], reCarry);
+    r2[9] = vaddq_u32(r2[9], imCarry);
+    //reduce
+    prop_2(r4);
+    prop_2(r4+9);
+    reCarry = div5(r4+8), imCarry = div5(r4+17);
+    r4[0] = vaddq_u32(r4[0], reCarry);
+    r4[9] = vaddq_u32(r4[9], imCarry);
+
+    // Apply the basis change and compute their respective square
+    // theta(P+Q) = M.T1 - M.T2 and theta(P-Q) = M.T1 + M.T2
+    apply_isomorphism_vec_1(ucomp, mm, r1);
+    apply_isomorphism_vec_2(vcomp, mm, r2);
+    fp2_sqr_batched(r1, ucomp);
+    fp2_sqr_batched(r2, vcomp);
+    apply_isomorphism_vec_1(ucomp, mm, r3);
+    apply_isomorphism_vec_2(vcomp, mm, r4);
+    fp2_sqr_batched(r3, ucomp);
+    fp2_sqr_batched(r4, vcomp);
+
+    // the difference between the two is therefore theta(P+Q)theta(P-Q)
+    // whose hadamard transform is then the product of the dual
+    // theta_points of phi(P) and phi(Q).
+    fp2_sub_batched(r1, r1, r2);
+    //reduce
+    prop_2(r1);
+    prop_2(r1+9);
+    reCarry = div5(r1+8), imCarry = div5(r1+17);
+    r1[0] = vaddq_u32(r1[0], reCarry);
+    r1[9] = vaddq_u32(r1[9], imCarry);
+    hadamard_vec(r1, r1);
+    fp2_sub_batched(r3, r3, r4);
+    //reduce
+    prop_2(r3);
+    prop_2(r3+9);
+    reCarry = div5(r3+8), imCarry = div5(r3+17);
+    r3[0] = vaddq_u32(r3[0], reCarry);
+    r3[9] = vaddq_u32(r3[9], imCarry);
+    hadamard_vec(r3, r3);
+
+
+    // Compute (x, y, z, t)
+    // As imageK1_8 = (x:x:y:y), its inverse is (y:y:x:x).
+    fp2_mul_batched(iA32, r1, imageK1_8yx);
+    hadamard_vec(iA32, iA32);
+    fp2_mul_batched(iB32, r3, imageK1_8yx);
+    hadamard_vec(iB32, iB32);
 }
 
 // Same as gluing_eval_point but in the very special case where we already know that the point will
@@ -610,6 +1089,27 @@ gluing_eval_point_special_case(theta_point_t *image, const theta_couple_point_t 
     return 1;
 }
 
+static int gluing_eval_point_special_case_vec(uint32x4_t *out, const theta_couple_point_t *P, uint32x4_t (*mm)[18], uint32x4_t *precompute)
+{
+    uint32x4_t ax[18];
+
+    // Apply the basis change
+    base_change_vec(ax, P, mm);
+
+    // Apply the to_squared_theta transform
+    to_squared_theta_batched(ax, ax);
+
+    // This coordinate should always be 0 in a gluing because D=0.
+    // If this is not the case, something went very wrong, so reject
+    if (!fp2_is_zero_32(ax, 3)) return 0;
+
+    // Compute (x, y, z, t)
+    fp2_mul_batched(ax, ax, precompute);
+    
+    hadamard_vec(out, ax);
+    return 1;
+}
+
 /**
  * @brief Evaluate a gluing isogeny from an elliptic product on a basis
  *
@@ -631,14 +1131,13 @@ gluing_eval_basis(theta_point_t *image1,
     gluing_eval_point(image2, xyT2, phi);
 }
 
-static void 
-gluing_eval_basis_vec(theta_point_t *image1,
-                  theta_point_t *image2,
+//doing 2-gluing_eval_point at the same time.
+static void gluing_eval_basis_vec(uint32x4_t *iA32, uint32x4_t *iB32,
                   const theta_couple_jac_point_t *xyT1,
                   const theta_couple_jac_point_t *xyT2,
-                  const theta_gluing_t *phi)
+                  const theta_gluing_t *phi, uint32x4_t (*mm)[18], uint32x4_t *imageK1_8yx)
 {
-    gluing_eval_point_vec(image1, xyT1, image2, xyT2, phi);
+    gluing_eval_point_vec(iA32, iB32, xyT1, xyT2, phi, mm, imageK1_8yx);
 }
 
 /**
@@ -1435,44 +1934,8 @@ void choose_small(theta_point_t* a, theta_point_t* b){
     }
 }
 
-// void choose_big(theta_point_t* f, theta_point_t* r, theta_point_t* b){
-//     if([0].x.re[4] > b[0].x.re[4]){
-//         b[0].x.re[4] = a[0].x.re[4];
-//         b[0].x.re[0] = a[0].x.re[0];
-//     }
-//     if(a[0].x.im[4] > b[0].x.im[4]){
-//         b[0].x.im[4] = a[0].x.im[4];
-//         b[0].x.im[0] = a[0].x.im[0];
-//     }
-//     if(a[0].y.re[4] > b[0].y.re[4]){
-//         b[0].y.re[4] = a[0].y.re[4];
-//         b[0].y.re[0] = a[0].y.re[0];
-//     }
-//     if(a[0].y.im[4] > b[0].y.im[4]){
-//         b[0].y.im[4] = a[0].y.im[4];
-//         b[0].y.im[0] = a[0].y.im[0];
-//     }
-//     if(a[0].z.re[4] > b[0].z.re[4]){
-//         b[0].z.re[4] = a[0].z.re[4];
-//         b[0].z.re[0] = a[0].z.re[0];
-//     }
-//     if(a[0].z.im[4] > b[0].z.im[4]){
-//         b[0].z.im[4] = a[0].z.im[4];
-//         b[0].z.im[0] = a[0].z.im[0];
-//     }
-//     if(a[0].t.re[4] > b[0].t.re[4]){
-//         b[0].t.re[4] = a[0].t.re[4];
-//         b[0].t.re[0] = a[0].t.re[0];
-//     }
-//     if(a[0].t.im[4] > b[0].t.im[4]){
-//         b[0].t.im[4] = a[0].t.im[4];
-//         b[0].t.im[0] = a[0].t.im[0];
-//     }
-// }
-
-
 static int
-_theta_chain_compute_impl(unsigned n,
+_theta_chain_compute_impl_ref(unsigned n,
                           theta_couple_curve_t *E12,
                           const theta_kernel_couple_points_t *ker,
                           bool extra_torsion,
@@ -1482,7 +1945,6 @@ _theta_chain_compute_impl(unsigned n,
                           bool verify,
                           bool randomize)
 {
-    uint64_t time;
     theta_structure_t theta;
 
     // lift the basis
@@ -1497,14 +1959,14 @@ _theta_chain_compute_impl(unsigned n,
 
     const unsigned extra = HD_extra_torsion * extra_torsion;
 
-// #ifndef NDEBUG
-//     assert(extra == 0 || extra == 2); // only cases implemented
-//     if (!test_point_order_twof(&bas2.P, &E12->E2, n + extra))
-//         debug_print("bas2.P does not have correct order");
+#ifndef NDEBUG
+    assert(extra == 0 || extra == 2); // only cases implemented
+    if (!test_point_order_twof(&bas2.P, &E12->E2, n + extra))
+        debug_print("bas2.P does not have correct order");
 
-//     if (!test_jac_order_twof(&xyT2.P2, &E12->E2, n + extra))
-//         debug_print("xyT2.P2 does not have correct order");
-// #endif
+    if (!test_jac_order_twof(&xyT2.P2, &E12->E2, n + extra))
+        debug_print("xyT2.P2 does not have correct order");
+#endif
 
     theta_point_t pts[numP ? numP : 1];
 
@@ -1538,7 +2000,196 @@ _theta_chain_compute_impl(unsigned n,
 
     // kernel points for the remaining isogeny steps
     theta_point_t thetaQ1[space], thetaQ2[space];
-    //theta_point_t thetaQ1_ref[space], thetaQ2_ref[space];
+
+    // the gluing step
+    theta_gluing_t first_step;
+    {
+        assert(todo[current] == 1);
+
+        // compute the gluing isogeny
+        if (!gluing_compute(&first_step, E12, &jacQ1[current], &jacQ2[current], verify))
+            return 0;
+
+        // evaluate
+        for (unsigned j = 0; j < numP; ++j) {
+            assert(ec_is_zero(&P12[j].P1) || ec_is_zero(&P12[j].P2));
+            if (!gluing_eval_point_special_case(&pts[j], &P12[j], &first_step))
+                return 0;
+        }
+
+        // push kernel points through gluing isogeny
+        for (int j = 0; j < current; ++j) {
+            gluing_eval_basis(&thetaQ1[j], &thetaQ2[j], &jacQ1[j], &jacQ2[j], &first_step);
+            --todo[j];
+        }
+
+        --current;
+    }
+
+    // set-up the theta_structure for the first codomain
+    theta.null_point = first_step.codomain;
+    theta.precomputation = 0;
+    theta_precomputation(&theta);
+
+    theta_isogeny_t step;
+
+    // and now we do the remaining steps
+    for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
+        assert(current < space);
+        while (todo[current] != 1) {
+            assert(todo[current] >= 2);
+            ++current;
+            assert(current < space);
+            const unsigned num_dbls = todo[current - 1] / 2;
+            assert(num_dbls && num_dbls < todo[current - 1]);
+            double_iter(&thetaQ1[current], &theta, &thetaQ1[current - 1], num_dbls);
+            double_iter(&thetaQ2[current], &theta, &thetaQ2[current - 1], num_dbls);
+            todo[current] = todo[current - 1] - num_dbls;
+        }
+
+        // computing the next step
+        int ret;
+        if (i == n - 2) // penultimate step
+            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
+        else if (i == n - 1) // ultimate step
+            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
+        else
+            ret = theta_isogeny_compute(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
+        if (!ret)
+            return 0;
+
+        for (unsigned j = 0; j < numP; ++j)
+            theta_isogeny_eval(&pts[j], &step, &pts[j]);
+
+        // updating the codomain
+        theta = step.codomain;
+
+        // pushing the kernel
+        assert(todo[current] == 1);
+        for (int j = 0; j < current; ++j) {
+            theta_isogeny_eval(&thetaQ1[j], &step, &thetaQ1[j]);
+            theta_isogeny_eval(&thetaQ2[j], &step, &thetaQ2[j]);
+            assert(todo[j]);
+            --todo[j];
+        }
+
+        --current;
+    }
+
+    assert(current == -1);
+
+    if (!extra_torsion) {
+        if (n >= 3) {
+            // in the last step we've skipped pushing the kernel since current was == 0, let's do it now
+            theta_isogeny_eval(&thetaQ1[0], &step, &thetaQ1[0]);
+            theta_isogeny_eval(&thetaQ2[0], &step, &thetaQ2[0]);
+        }
+
+        // penultimate step
+        theta_isogeny_compute_4(&step, &theta, &thetaQ1[0], &thetaQ2[0], 0, 0);
+        for (unsigned j = 0; j < numP; ++j)
+            theta_isogeny_eval(&pts[j], &step, &pts[j]);
+        theta = step.codomain;
+        theta_isogeny_eval(&thetaQ1[0], &step, &thetaQ1[0]);
+        theta_isogeny_eval(&thetaQ2[0], &step, &thetaQ2[0]);
+
+        // ultimate step
+        theta_isogeny_compute_2(&step, &theta, &thetaQ1[0], &thetaQ2[0], 1, 0);
+        for (unsigned j = 0; j < numP; ++j)
+            theta_isogeny_eval(&pts[j], &step, &pts[j]);
+        theta = step.codomain;
+    }
+
+    // final splitting step
+    theta_splitting_t last_step;
+
+    bool is_split = splitting_compute(&last_step, &theta, extra_torsion ? 8 : -1, randomize);
+
+    if (!is_split) {
+        debug_print("kernel did not generate an isogeny between elliptic products");
+        return 0;
+    }
+
+    if (!theta_product_structure_to_elliptic_product(E34, &last_step.B))
+        return 0;
+
+    // evaluate
+    for (size_t j = 0; j < numP; ++j) {
+        apply_isomorphism(&pts[j], &last_step.M, &pts[j]);
+        if (!theta_point_to_montgomery_point(&P12[j], &pts[j], &last_step.B))
+            return 0;
+    }
+
+    return 1;
+}
+
+static int
+_theta_chain_compute_impl(unsigned n,
+                          theta_couple_curve_t *E12,
+                          const theta_kernel_couple_points_t *ker,
+                          bool extra_torsion,
+                          theta_couple_curve_t *E34,
+                          theta_couple_point_t *P12,
+                          size_t numP,
+                          bool verify,
+                          bool randomize)
+{
+    uint64_t time;
+    theta_structure_t theta;
+
+    // lift the basis
+    theta_couple_jac_point_t xyT1, xyT2;
+
+    ec_basis_t bas1 = { .P = ker->T1.P1, .Q = ker->T2.P1, .PmQ = ker->T1m2.P1 };
+    ec_basis_t bas2 = { .P = ker->T1.P2, .Q = ker->T2.P2, .PmQ = ker->T1m2.P2 };
+    if (!lift_basis(&xyT1.P1, &xyT2.P1, &bas1, &E12->E1))
+        return 0;
+    if (!lift_basis(&xyT1.P2, &xyT2.P2, &bas2, &E12->E2))
+        return 0;
+
+    const unsigned extra = HD_extra_torsion * extra_torsion;
+
+#ifndef NDEBUG
+    assert(extra == 0 || extra == 2); // only cases implemented
+    if (!test_point_order_twof(&bas2.P, &E12->E2, n + extra))
+        debug_print("bas2.P does not have correct order");
+
+    if (!test_jac_order_twof(&xyT2.P2, &E12->E2, n + extra))
+        debug_print("xyT2.P2 does not have correct order");
+#endif
+
+    theta_point_t pts[numP ? numP : 1];
+
+    int space = 1;
+    for (unsigned i = 1; i < n; i *= 2)
+        ++space;
+
+    uint16_t todo[space];
+    todo[0] = n - 2 + extra;
+
+    int current = 0;
+
+    // kernel points for the gluing isogeny
+    theta_couple_jac_point_t jacQ1[space], jacQ2[space];
+    jacQ1[0] = xyT1;
+    jacQ2[0] = xyT2;
+    while (todo[current] != 1) {
+        assert(todo[current] >= 2);
+        ++current;
+        assert(current < space);
+        // the gluing isogeny is quite a bit more expensive than the others,
+        // so we adjust the usual splitting rule here a little bit: towards
+        // the end of the doubling chain it will be cheaper to recompute the
+        // doublings after evaluation than to push the intermediate points.
+        const unsigned num_dbls = todo[current - 1] >= 16 ? todo[current - 1] / 2 : todo[current - 1] - 1;
+        assert(num_dbls && num_dbls < todo[current - 1]);
+        double_couple_jac_point_iter(&jacQ1[current], num_dbls, &jacQ1[current - 1], E12);
+        double_couple_jac_point_iter(&jacQ2[current], num_dbls, &jacQ2[current - 1], E12);
+        todo[current] = todo[current - 1] - num_dbls;
+    }
+
+    // kernel points for the remaining isogeny steps
+    theta_point_t thetaQ1[space], thetaQ2[space];
 
     // the gluing step
     theta_gluing_t first_step;
@@ -1805,6 +2456,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
 #endif
 
     theta_point_t pts[numP ? numP : 1];
+    uint32x4_t vecPts[numP ? numP : 1][18];
 
     int space = 1;
     for (unsigned i = 1; i < n; i *= 2)
@@ -1829,8 +2481,6 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // doublings after evaluation than to push the intermediate points.
         const unsigned num_dbls = todo[current - 1] >= 16 ? todo[current - 1] / 2 : todo[current - 1] - 1;
         assert(num_dbls && num_dbls < todo[current - 1]);
-        // double_couple_jac_point_iter(&jacQ1[current], num_dbls, &jacQ1[current - 1], E12);
-        // double_couple_jac_point_iter(&jacQ2[current], num_dbls, &jacQ2[current - 1], E12);
         double_couple_jac_point_iter_vec(&jacQ1[current], num_dbls, &jacQ1[current - 1], E12);
         double_couple_jac_point_iter_vec(&jacQ2[current], num_dbls, &jacQ2[current - 1], E12);
         todo[current] = todo[current - 1] - num_dbls;
@@ -1839,31 +2489,110 @@ _theta_chain_compute_impl_randomized(unsigned n,
 
     // kernel points for the remaining isogeny steps
     theta_point_t thetaQ1[space], thetaQ2[space];
-    //theta_point_t thetaQ1_ref[space], thetaQ2_ref[space];
 
     // the gluing step
     time = rdtsc();
     theta_gluing_t first_step;
+    uint32x4_t vecQ1[space][18], vecQ2[space][18];
     {
         assert(todo[current] == 1);
 
         // compute the gluing isogeny
+        theta_point_t tp;
+        // fp_t mb = {0, 0, 0, 0, 35184372088832}; // 2**(510-261)
+        // theta_couple_jac_point_t jq1, jq2; 
+        // fp_mul(&jq1.P1.x.re, &jacQ1[current].P1.x.re, &mb);
+        // fp_mul(&jq1.P1.x.im, &jacQ1[current].P1.x.im, &mb);
+        // fp_mul(&jq1.P1.y.re, &jacQ1[current].P1.y.re, &mb);
+        // fp_mul(&jq1.P1.y.im, &jacQ1[current].P1.y.im, &mb);
+        // fp_mul(&jq1.P1.z.re, &jacQ1[current].P1.z.re, &mb);
+        // fp_mul(&jq1.P1.z.im, &jacQ1[current].P1.z.im, &mb);
+        // fp_mul(&jq1.P2.x.re, &jacQ1[current].P2.x.re, &mb);
+        // fp_mul(&jq1.P2.x.im, &jacQ1[current].P2.x.im, &mb);
+        // fp_mul(&jq1.P2.y.re, &jacQ1[current].P2.y.re, &mb);
+        // fp_mul(&jq1.P2.y.im, &jacQ1[current].P2.y.im, &mb);
+        // fp_mul(&jq1.P2.z.re, &jacQ1[current].P2.z.re, &mb);
+        // fp_mul(&jq1.P2.z.im, &jacQ1[current].P2.z.im, &mb);
+        // fp_mul(&jq2.P1.x.re, &jacQ2[current].P1.x.re, &mb);
+        // fp_mul(&jq2.P1.x.im, &jacQ2[current].P1.x.im, &mb);
+        // fp_mul(&jq2.P1.y.re, &jacQ2[current].P1.y.re, &mb);
+        // fp_mul(&jq2.P1.y.im, &jacQ2[current].P1.y.im, &mb);
+        // fp_mul(&jq2.P1.z.re, &jacQ2[current].P1.z.re, &mb);
+        // fp_mul(&jq2.P1.z.im, &jacQ2[current].P1.z.im, &mb);
+        // fp_mul(&jq2.P2.x.re, &jacQ2[current].P2.x.re, &mb);
+        // fp_mul(&jq2.P2.x.im, &jacQ2[current].P2.x.im, &mb);
+        // fp_mul(&jq2.P2.y.re, &jacQ2[current].P2.y.re, &mb);
+        // fp_mul(&jq2.P2.y.im, &jacQ2[current].P2.y.im, &mb);
+        // fp_mul(&jq2.P2.z.re, &jacQ2[current].P2.z.re, &mb);
+        // fp_mul(&jq2.P2.z.im, &jacQ2[current].P2.z.im, &mb);
+        // if (!gluing_compute(&first_step, E12, &jq1, &jq2, verify)) return 0;
         if (!gluing_compute(&first_step, E12, &jacQ1[current], &jacQ2[current], verify))
             return 0;
 
         // evaluate
+        uint32x4_t mm[4][18], precompute[18];//, mb32[18];
+        transpose_matrix(mm, &first_step.M);
+        tp.x = first_step.precomputation.x;
+        tp.y = first_step.precomputation.y;
+        tp.z = first_step.precomputation.z;
+        fp2_set_zero(&tp.t);
+        transpose(precompute, tp);
         for (unsigned j = 0; j < numP; ++j) {
             assert(ec_is_zero(&P12[j].P1) || ec_is_zero(&P12[j].P2));
-            if (!gluing_eval_point_special_case(&pts[j], &P12[j], &first_step))
-                return 0;
+            if (!gluing_eval_point_special_case_vec(vecPts[j], &P12[j], mm, precompute)) return 0;
         }
+
+        // tp.x = first_step.imageK1_8.y;
+        // tp.y = first_step.imageK1_8.y;
+        // tp.z = first_step.imageK1_8.x;
+        // tp.t = first_step.imageK1_8.x;
+        // fp_t R2 = {1638, 0, 0, 0, 35184372088832};
+        // theta_montback(&tp, &R2);
+        // transpose(precompute, tp);
+        // //mb32 = 2**(261*2-255)
+        // for (int i=0; i<2; i++){
+        //     mb32[i*9] = vdupq_n_u32(104857);
+        //     mb32[i*9+1] = vdupq_n_u32(0);
+        //     mb32[i*9+2] = vdupq_n_u32(0);
+        //     mb32[i*9+3] = vdupq_n_u32(0);
+        //     mb32[i*9+4] = vdupq_n_u32(0);
+        //     mb32[i*9+5] = vdupq_n_u32(0);
+        //     mb32[i*9+6] = vdupq_n_u32(0);
+        //     mb32[i*9+7] = vdupq_n_u32(0);
+        //     mb32[i*9+8] = vdupq_n_u32(196608);
+        // }
+        // u32_montback(mm[0], mb32);
+        // u32_montback(mm[1], mb32);
+        // u32_montback(mm[2], mb32);
+        // u32_montback(mm[3], mb32);
+        // theta_gluing_t firstxy;
+        // fp_mul(&firstxy.xyK1_8.P1.x.re, &first_step.xyK1_8.P1.x.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P1.x.im, &first_step.xyK1_8.P1.x.im, &R2);
+        // fp_mul(&firstxy.xyK1_8.P1.y.re, &first_step.xyK1_8.P1.y.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P1.y.im, &first_step.xyK1_8.P1.y.im, &R2);
+        // fp_mul(&firstxy.xyK1_8.P1.z.re, &first_step.xyK1_8.P1.z.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P1.z.im, &first_step.xyK1_8.P1.z.im, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.x.re, &first_step.xyK1_8.P2.x.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.x.im, &first_step.xyK1_8.P2.x.im, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.y.re, &first_step.xyK1_8.P2.y.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.y.im, &first_step.xyK1_8.P2.y.im, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.z.re, &first_step.xyK1_8.P2.z.re, &R2);
+        // fp_mul(&firstxy.xyK1_8.P2.z.im, &first_step.xyK1_8.P2.z.im, &R2);
+        // fp_mul(&firstxy.domain.E1.A.re, &first_step.domain.E1.A.re, &R2);
+        // fp_mul(&firstxy.domain.E1.A.im, &first_step.domain.E1.A.im, &R2);
+        // fp_mul(&firstxy.domain.E2.A.re, &first_step.domain.E2.A.re, &R2);
+        // fp_mul(&firstxy.domain.E2.A.im, &first_step.domain.E2.A.im, &R2);
 
         // push kernel points through gluing isogeny
         for (int j = 0; j < current; ++j) {
             gluing_eval_basis(&thetaQ1[j], &thetaQ2[j], &jacQ1[j], &jacQ2[j], &first_step);
+            // gluing_eval_point_vec(vecQ1[j], vecQ2[j], &jacQ1[j], &jacQ2[j], &firstxy, mm, precompute); //R2
+            // itranspose(&thetaQ1[j], vecQ1[j]);
+            // theta_montback(&thetaQ1[j], &mb);
+            // itranspose(&thetaQ2[j], vecQ2[j]);
+            // theta_montback(&thetaQ2[j], &mb);
             --todo[j];
         }
-
         --current;
     }
     //printf("gluing: %lu\n", rdtsc()-time);
@@ -1873,52 +2602,55 @@ _theta_chain_compute_impl_randomized(unsigned n,
     // theta_ref.null_point = first_step.codomain;
     // theta_ref.precomputation = 0;
     time = rdtsc();
-    theta.null_point = first_step.codomain;
-    theta.precomputation = 0;
-    // theta_precomputation(&theta_ref);
+    {
+        theta.null_point = first_step.codomain;
+        theta.precomputation = 0;
+        // theta_precomputation(&theta_ref);
 
-    transpose_theta_precomputation_vec(&theta);
-    fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-    fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
-    theta_point_t dg, dg2;
-    dg.x = theta.XYT0;
-    dg.y = theta.YZT0;
-    dg.z = theta.XZT0;
-    dg.t = theta.XYZ0;
+        transpose_theta_precomputation_vec(&theta);
+        fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+        fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
+        theta_point_t dg, dg2;
+        dg.x = theta.XYT0;
+        dg.y = theta.YZT0;
+        dg.z = theta.XZT0;
+        dg.t = theta.XYZ0;
 
-    dg2.x = theta.xyt0;
-    dg2.y = theta.yzt0;
-    dg2.z = theta.xzt0;
-    dg2.t = theta.xyz0;
+        dg2.x = theta.xyt0;
+        dg2.y = theta.yzt0;
+        dg2.z = theta.xzt0;
+        dg2.t = theta.xyz0;
 
-    theta_montback(&dg, &mb5);
-    theta_montback(&dg2, &mb2);
+        theta_montback(&dg, &mb5);
+        theta_montback(&dg2, &mb2);
 
-    theta.XYT0 = dg.x;
-    theta.YZT0 = dg.y;
-    theta.XZT0 = dg.z;
-    theta.XYZ0 = dg.t;
+        theta.XYT0 = dg.x;
+        theta.YZT0 = dg.y;
+        theta.XZT0 = dg.z;
+        theta.XYZ0 = dg.t;
 
-    theta.xyt0 = dg2.x;
-    theta.yzt0 = dg2.y;
-    theta.xzt0 = dg2.z;
-    theta.xyz0 = dg2.t;
+        theta.xyt0 = dg2.x;
+        theta.yzt0 = dg2.y;
+        theta.xzt0 = dg2.z;
+        theta.xyz0 = dg2.t;
+    }
     //printf("theta_precomputation: %lu\n", rdtsc()-time);
 
     time = rdtsc();
-    uint64_t time_structure = rdtsc();
+    //uint64_t time_structure = rdtsc();
     theta_isogeny_t step;
     // and now we do the remaining steps
     /*pre-check current cflag = 0 if current = -1, otherwise cflag = current*/
     int cflag = ((int)((uint32_t)current>>31u)-1)&current;
-    uint32x4_t vecQ1[space][18], vecQ2[space][18];
     for (int i=0; i<=cflag; i++){
         transpose(vecQ1[i], thetaQ1[i]);
         transpose(vecQ2[i], thetaQ2[i]);
     }
 
     //(2**(261*6-255*(5)))%q
-    uint32x4_t mb32_6[18], mb32_3[18], mb32_441[18], mb32_510[18], u32_tmp0[18], u32_tmp1[18];
+    uint32x4_t mb32_6[18], mb32_3[18];
+    uint32x4_t mb32_trace[18], mb32_cancelR1[18] = {0};
+    mb32_cancelR1[0] = mb32_cancelR1[9] = vdupq_n_u32(64);
     for (int i=0; i<2; i++){
         mb32_6[i*9] = vdupq_n_u32(429496729);
         mb32_6[i*9+1] = vdupq_n_u32(3276);
@@ -1939,36 +2671,36 @@ _theta_chain_compute_impl_randomized(unsigned n,
         mb32_3[i*9+6] = vdupq_n_u32(0);
         mb32_3[i*9+7] = vdupq_n_u32(0);
         mb32_3[i*9+8] = vdupq_n_u32(131072);
-
-        mb32_510[i*9] = vdupq_n_u32(214749020);
-        mb32_510[i*9+1] = vdupq_n_u32(107374182);
-        mb32_510[i*9+2] = vdupq_n_u32(322122547);
-        mb32_510[i*9+3] = vdupq_n_u32(429496729);
-        mb32_510[i*9+4] = vdupq_n_u32(214748364);
-        mb32_510[i*9+5] = vdupq_n_u32(107374182);
-        mb32_510[i*9+6] = vdupq_n_u32(322122547);
-        mb32_510[i*9+7] = vdupq_n_u32(429496729);
-        mb32_510[i*9+8] = vdupq_n_u32(52428);
-
-        mb32_441[i*9] = vdupq_n_u32(107374182);
-        mb32_441[i*9+1] = vdupq_n_u32(322122547);
-        mb32_441[i*9+2] = vdupq_n_u32(429496729);
-        mb32_441[i*9+3] = vdupq_n_u32(214748364);
-        mb32_441[i*9+4] = vdupq_n_u32(107374182);
-        mb32_441[i*9+5] = vdupq_n_u32(322122547);
-        mb32_441[i*9+6] = vdupq_n_u32(104857);
-        mb32_441[i*9+7] = vdupq_n_u32(0);
-        mb32_441[i*9+8] = vdupq_n_u32(131072);
-    }
-
-    uint32x4_t vecPts[numP ? numP : 1][18];
-    for (unsigned j = 0; j < numP; ++j){
-        transpose(vecPts[j], pts[j]);
         
+        //261*9-255*7
+        mb32_trace[i*9] = vdupq_n_u32(64424509);
+        mb32_trace[i*9+1] = vdupq_n_u32(408021893);
+        mb32_trace[i*9+2] = vdupq_n_u32(214748405);
+        mb32_trace[i*9+3] = vdupq_n_u32(107374182);
+        mb32_trace[i*9+4] = vdupq_n_u32(322122547);
+        mb32_trace[i*9+5] = vdupq_n_u32(429496729);
+        mb32_trace[i*9+6] = vdupq_n_u32(214748364);
+        mb32_trace[i*9+7] = vdupq_n_u32(107374182);
+        mb32_trace[i*9+8] = vdupq_n_u32(144179);
     }
 
-    unsigned iflag = 1;
-    for (unsigned i = 1; current >= 0 && todo[current]; ++i, ++iflag) {
+    for (unsigned j = 0; j < numP; ++j) u32_montback(vecPts[j], mb32_trace); //R2^{-2}
+
+    //255-261*2
+    for (int i=0; i<2; i++){
+        mb32_trace[i*9] = vdupq_n_u32(0);
+        mb32_trace[i*9+1] = vdupq_n_u32(0);
+        mb32_trace[i*9+2] = vdupq_n_u32(0);
+        mb32_trace[i*9+3] = vdupq_n_u32(0);
+        mb32_trace[i*9+4] = vdupq_n_u32(0);
+        mb32_trace[i*9+5] = vdupq_n_u32(0);
+        mb32_trace[i*9+6] = vdupq_n_u32(0);
+        mb32_trace[i*9+7] = vdupq_n_u32(67108864);
+        mb32_trace[i*9+8] = vdupq_n_u32(3);
+    }
+
+
+    for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
         assert(current < space);
         time = rdtsc();
         int tcurrent = current;
@@ -1990,17 +2722,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
             itranspose(&thetaQ2[j], vecQ2[j]);
         }
 
-        // // computing the next step
-        // time = rdtsc();
-        // int ret;
-        // if (i == n - 2) // penultimate step
-        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 0, verify);
-        // else if (i == n - 1) // ultimate step
-        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 1, 0, false);
-        // else
-        //     ret = theta_isogeny_compute(&step_ref, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
-        // //printf("- Compute ref: %lu, ", rdtsc()-time);
-        
+        // computing the next step   
         int ret;
         uint32x4_t step_codomain[18], step_precomputation[18];
         time = rdtsc();
@@ -2024,35 +2746,15 @@ _theta_chain_compute_impl_randomized(unsigned n,
         itranspose(&step.codomain.null_point, step_codomain);
         itranspose(&step.precomputation, step_precomputation);
         //printf("\tvec: %lu\n", rdtsc()-time);
-
-        // mont back
-        // fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-        // theta_montback(&step.codomain.null_point, &montback);
-        // theta_montback(&step.precomputation, &montback);
-
+        
         if (!ret) return 0;
-
-        uint64_t timeRef = rdtsc();
-        //fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
-        for (unsigned j = 0; j < numP; ++j){
-            // theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
-            // theta_montback(&pts[j], &mb);
-            theta_isogeny_eval_vec_randomized(vecPts[j], step_precomputation, &step);
-            //u32_montback(vecPts[j], mb32_3);
-            if (iflag%4 == 0){
-                u32_montback(vecPts[j], mb32_441);
-                iflag = 0;
-            }
-        }
-        timeRef = rdtsc() - timeRef;
-        //printf("\tNeon: %lu\n", timeRef);
-
 
         // updating the codomain
         theta = step.codomain;
         // pushing the kernel
         assert(todo[current] == 1);
         
+        uint64_t timeRef;
         timeRef = rdtsc();
         for (int j = 0; j < current; ++j){
             // theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
@@ -2070,6 +2772,18 @@ _theta_chain_compute_impl_randomized(unsigned n,
         timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
 
+        timeRef = rdtsc();
+        //fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
+        u32_montback(step_precomputation, mb32_cancelR1);
+        for (unsigned j = 0; j < numP; ++j){
+            // theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
+            // theta_montback(&pts[j], &mb);
+            theta_isogeny_eval_vec_randomized(vecPts[j], step_precomputation, &step);
+            //u32_montback(vecPts[j], mb32_3);
+        }
+        timeRef = rdtsc() - timeRef;
+        //printf("\tNeon: %lu\n", timeRef);
+
         --current;
         //printf("tcurrent: %d, current: %d\n", tcurrent, current);
     }
@@ -2077,15 +2791,10 @@ _theta_chain_compute_impl_randomized(unsigned n,
     itranspose(thetaQ1, vecQ1[cflag]);
     itranspose(thetaQ2, vecQ2[cflag]);
     for (unsigned j = 0; j < numP; ++j){
-        power_to_num(u32_tmp0, iflag+1);
-        u32_tmp1[0] = vaddq_u32(u32_tmp0[0], u32_tmp0[0]);
-        u32_tmp1[0] = vaddq_u32(u32_tmp1[0], u32_tmp0[0]);
-        power_to_num(u32_tmp0, u32_tmp1[0][0]);
-        u32_montback(vecPts[j], mb32_510);
-        u32_montback(vecPts[j], u32_tmp0);
+        u32_montback(vecPts[j], mb32_trace);
         itranspose(pts+j, vecPts[j]);
     }
-    printf("theta_structure: %lu\n", rdtsc()-time_structure);
+    //printf("theta_structure: %lu\n", rdtsc()-time_structure);
 
     /*assert(current == -1);*/
     time = rdtsc();
@@ -2150,8 +2859,8 @@ theta_chain_compute_and_eval(unsigned n,
                              theta_couple_point_t *P12,
                              size_t numP)
 {
-    return _theta_chain_compute_impl(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
-    //return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
+    //return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
+    return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
 }
 
 // Like theta_chain_compute_and_eval, adding extra verification checks;
@@ -2165,7 +2874,7 @@ theta_chain_compute_and_eval_verify(unsigned n,
                                     theta_couple_point_t *P12,
                                     size_t numP)
 {
-    return _theta_chain_compute_impl(n, E12, ker, extra_torsion, E34, P12, numP, true, false);
+    return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, true, false);
 }
 
 int
@@ -2177,6 +2886,7 @@ theta_chain_compute_and_eval_randomized(unsigned n,
                                         theta_couple_point_t *P12,
                                         size_t numP)
 {
-    printf("********************randomized********************\n");
+    //printf("********************randomized********************\n");
+    //return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
     return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, true);
 }

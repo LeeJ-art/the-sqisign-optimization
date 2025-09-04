@@ -14,7 +14,7 @@ int
 test_sqisign(int repeat)
 {
     int res = 1;
-    uint64_t  ttime[2] = {0};
+    uint64_t  ttime[7] = {0};
 
     public_key_t pk;
     secret_key_t sk;

@@ -88,6 +88,48 @@ double_couple_jac_point_iter(theta_couple_jac_point_t *out,
     }
 }
 
+
+void
+jac_from_ws_vec(uint32x4_t *out, const fp2_t *ao31, const fp2_t *ao32, const ec_curve_t *curve1, const ec_curve_t *curve2)
+{
+    // Cost of 1M + 1S when A != 0.
+    /* X = U - (A*W^2)/3, Y = V, Z = W. */
+    theta_point_t tp;
+    uint32x4_t a32[18], b32[18];
+    tp.x = ao31[0];
+    tp.z = ao32[0];
+    transpose(b32, tp);
+    if (!fp2_is_zero(&(curve1->A))) {
+        // fp2_sqr(&t, &P->z);
+        // fp2_mul(&t, &t, ao3);
+        // fp2_sub(&Q->x, &P->x, &t);
+        for (int i=0; i<18; i++){
+            a32[i][0] = out[18+i][1];
+        }
+        fp2_sqr_batched(a32, a32);
+        fp2_mul_batched(a32, a32, b32);
+        fp2_sub_batched(a32, out, a32);
+        for (int i=0; i<18; i++){
+            out[i][0] = a32[i][0];
+        }
+    }
+
+    if (!fp2_is_zero(&(curve2->A))) {
+        // fp2_sqr(&t, &P->z);
+        // fp2_mul(&t, &t, ao3);
+        // fp2_sub(&Q->x, &P->x, &t);
+        for (int i=0; i<18; i++){
+            a32[i][2] = out[18+i][3];
+        }
+        fp2_sqr_batched(a32, a32);
+        fp2_mul_batched(a32, a32, b32);
+        fp2_sub_batched(a32, out, a32);
+        for (int i=0; i<18; i++){
+            out[i][2] = a32[i][2];
+        }
+    }
+}
+
 void
 double_couple_jac_point_iter_vec(theta_couple_jac_point_t *out,
                              unsigned n,
@@ -149,8 +191,18 @@ double_couple_jac_point_iter_vec(theta_couple_jac_point_t *out,
         t2 = tp.z;
         out->P2.z = tp.t;
 
+        //without montback => R2
         jac_from_ws(&out->P1, &out->P1, &a1, &E1E2->E1);
         jac_from_ws(&out->P2, &out->P2, &a2, &E1E2->E2);
+        // jac_from_ws_vec(out32, &a1, &a2, &E1E2->E1, &E1E2->E2);
+        // itranspose(&tp, out32);
+        // out->P1.x = tp.x;
+        // out->P1.y = tp.y;
+        // out->P2.x = tp.z;
+        // out->P2.y = tp.t;
+        // itranspose(&tp, out32+18);
+        // out->P1.z = tp.y;
+        // out->P2.z = tp.t;
     }
 }
 

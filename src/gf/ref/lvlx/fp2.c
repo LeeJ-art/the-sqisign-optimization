@@ -344,6 +344,12 @@ fp2_cswap(fp2_t *a, fp2_t *b, uint32_t ctl)
     fp_cswap(&(a->im), &(b->im), ctl);
 }
 
+uint32_t fp2_is_zero_32(const uint32x4_t* p, int x){
+  uint32_t a[18];
+  for (int i = 0; i < 18; i++) a[i] = p[i][x];
+  return fp_is_zero_32(a) & fp_is_zero_32(a+9);
+}
+
 
 void fp2_add_batched(uint32x4_t* out, uint32x4_t *a, uint32x4_t *b){
     for (int i=0; i<9; i++){

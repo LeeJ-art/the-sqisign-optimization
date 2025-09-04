@@ -90,6 +90,8 @@ jac_from_ws(jac_point_t *Q, const jac_point_t *P, const fp2_t *ao3, const ec_cur
     fp2_copy(&Q->z, &P->z);
 }
 
+
+
 void
 copy_jac_point(jac_point_t *P, const jac_point_t *Q)
 {
@@ -470,3 +472,5 @@ jac_to_xz_add_components(add_components_t *add_comp, const jac_point_t *P, const
     fp2_sub(&add_comp->u, &t4, &t1); // u  = z1^6y_2^2 + y1^2z2^6 - gamma*lambda^2
     fp2_mul(&add_comp->w, &t6, &t0); // w  = (z1z2)^2(lambda)^2
 }
+
+

@@ -497,6 +497,7 @@ compute_and_set_basis_change_matrix(signature_t *sig,
     ibz_mat_2x2_finalize(&mat_Baux2_to_Baux2_can);
 }
 
+
 __attribute__((noinline)) 
 int
 protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const unsigned char *m, size_t l, uint64_t* ttime)

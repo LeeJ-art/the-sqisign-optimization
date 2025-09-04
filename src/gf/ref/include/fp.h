@@ -50,5 +50,11 @@ void fp_div3(fp_t *out, const fp_t *a);
 void prop_2(uint32x4_t *n);
 uint32x4_t div5(uint32x4_t* in);
 void fp_mul_batched(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b);
+void modmul32(const uint32_t *a, const uint32_t *b, uint32_t *c);
+uint32_t prop32 (uint32_t *n);
+int flatten32(uint32_t *n);
+int modfsb32(uint32_t *n);
+void redc32(uint32_t *n, uint32_t *m);
+uint32_t fp_is_zero_32(uint32_t* p);
 
 #endif

@@ -20,6 +20,7 @@ secret_key_finalize(secret_key_t *sk)
     ibz_mat_2x2_finalize(&(sk->mat_BAcan_to_BA0_two));
 }
 
+
 int
 protocols_keygen(public_key_t *pk, secret_key_t *sk)
 {

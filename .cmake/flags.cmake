@@ -28,7 +28,7 @@ else()
 	if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 		set(STRICT_OPTIONS_C "${STRICT_OPTIONS_C} -Og -g")
 	else()
-		set(STRICT_OPTIONS_C "${STRICT_OPTIONS_C} -O3 ") #add not debug for profiling
+		set(STRICT_OPTIONS_C "${STRICT_OPTIONS_C} -O3 -DNDEBUG") #add not debug for profiling
 	endif()
 	set(STRICT_OPTIONS_C "${STRICT_OPTIONS_C} -std=c11 -Wno-error=strict-prototypes -fvisibility=hidden -funroll-loops -Wno-error=implicit-function-declaration -Wno-error=attributes")
 	if(CMAKE_C_COMPILER_ID MATCHES "Clang")

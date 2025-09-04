@@ -609,6 +609,35 @@ void itranspose(theta_point_t *Out, uint32x4_t *In){
     Out->t.im[4] = mask & (((uint64_t)in32[3][16]>>1) + ((uint64_t)in32[3][17]<<28));
 }
 
+static inline void 
+transpose_matrix(uint32x4_t (*Out)[18], const basis_change_matrix_t* In){
+    theta_point_t tp;
+
+    tp.x = In->m[0][0];
+    tp.y = In->m[1][0];
+    tp.z = In->m[2][0];
+    tp.t = In->m[3][0];
+    transpose(Out[0], tp);
+
+    tp.x = In->m[0][1];
+    tp.y = In->m[1][1];
+    tp.z = In->m[2][1];
+    tp.t = In->m[3][1];
+    transpose(Out[1], tp);
+
+    tp.x = In->m[0][2];
+    tp.y = In->m[1][2];
+    tp.z = In->m[2][2];
+    tp.t = In->m[3][2];
+    transpose(Out[2], tp);
+
+    tp.x = In->m[0][3];
+    tp.y = In->m[1][3];
+    tp.z = In->m[2][3];
+    tp.t = In->m[3][3];
+    transpose(Out[3], tp);
+}
+
 // end of hd_functions
 /**
  * @}
