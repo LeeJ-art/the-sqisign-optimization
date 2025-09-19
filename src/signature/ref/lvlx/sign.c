@@ -8,11 +8,11 @@
 #include <stdio.h>
 #include <bench.h>
 
-static __inline__ uint64_t
-rdtsc(void)
-{
-    return (uint64_t)cpucycles();
-}
+//static __inline__ uint64_t
+//rdtsc(void)
+//{
+//    return (uint64_t)cpucycles();
+//}
 
 // compute the commitment with ideal to isogeny clapotis
 // and apply it to the basis of E0 (together with the multiplication by some scalar u)
@@ -207,7 +207,7 @@ evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
                                       const ibz_t *norm,
                                       const quat_left_ideal_t *lideal_com_resp, uint64_t *ttime)
 {
-    uint64_t t0 = rdtsc();
+    //uint64_t t0 = rdtsc();
     
     quat_left_ideal_t lideal_aux;
     quat_left_ideal_t lideal_aux_resp_com;
@@ -216,15 +216,15 @@ evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
     quat_left_ideal_init(&lideal_aux);
     quat_left_ideal_init(&lideal_aux_resp_com);
 
-    ttime[4] += rdtsc() - t0;
-    t0 = rdtsc();
+    //ttime[4] += rdtsc() - t0;
+    //t0 = rdtsc();
 
     // sampling the ideal at random
     int found = quat_sampling_random_ideal_O0_given_norm(
         &lideal_aux, norm, 0, &QUAT_represent_integer_params, &QUAT_prime_cofactor);
     
-    ttime[5] += rdtsc() - t0;
-    t0 = rdtsc();
+    //ttime[5] += rdtsc() - t0;
+    //t0 = rdtsc();
 
     if (found) {
         // pushing forward
@@ -238,7 +238,7 @@ evaluate_random_aux_isogeny_signature(ec_curve_t *E_aux,
         quat_left_ideal_finalize(&lideal_aux);
     }
 
-    ttime[4] += rdtsc() - t0;
+    //ttime[4] += rdtsc() - t0;
 
     return found;
 }
@@ -534,7 +534,7 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
     ec_curve_init(&Ecom_Eaux.E1);
     ec_curve_init(&Ecom_Eaux.E2);
 
-    uint64_t t0 = rdtsc();
+    //uint64_t t0 = rdtsc();
 
     while (!ret) {
 
@@ -543,20 +543,20 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
 
         // start again if the commitment generation has failed
         if (!ret) {
-            ttime[0] += rdtsc() - t0;
-            t0 = rdtsc();
+            //ttime[0] += rdtsc() - t0;
+            //t0 = rdtsc();
             continue;
         }
 
-        ttime[0] += rdtsc() - t0;
-        t0 = rdtsc();
+        //ttime[0] += rdtsc() - t0;
+        //t0 = rdtsc();
 
         // Hash the message to a kernel generator
         // i.e. a scalar such that ker = P + [s]Q
         hash_to_challenge(&sig->chall_coeff, pk, &Ecom_Eaux.E1, m, l);
 
-        ttime[1] += rdtsc() - t0;
-        t0 = rdtsc();        
+        //ttime[1] += rdtsc() - t0;
+        //t0 = rdtsc();        
         
         // Compute the challenge ideal and response quaternion element
         {
@@ -602,8 +602,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
 
             // auxiliary isogeny computation failed we must start again
             if (!ret) {
-                ttime[2] += rdtsc() - t0;
-                t0 = rdtsc();
+                //ttime[2] += rdtsc() - t0;
+                //t0 = rdtsc();
                 continue;
             }
 
@@ -631,8 +631,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
             ret = compute_dim2_isogeny_challenge(
                 &Eaux2_Echall2, &Ecom_Eaux, &degree_resp_inv, pow_dim2_deg_resp, sig->two_resp_length, reduced_order);
             if (!ret){
-                ttime[2] += rdtsc() - t0;
-                t0 = rdtsc();
+                //ttime[2] += rdtsc() - t0;
+                //t0 = rdtsc();
                 continue;
             }
 
@@ -659,8 +659,8 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
         if (!compute_challenge_codomain_signature(sig, sk, &E_chall, &Eaux2_Echall2.E2, &Eaux2_Echall2.B2))
             assert(0); // this shouldn't fail
 
-        ttime[2] += rdtsc() - t0;
-        t0 = rdtsc();
+        //ttime[2] += rdtsc() - t0;
+        //t0 = rdtsc();
     }
 
     // Set to the signature the Montgomery A-coefficient of E_aux_2
@@ -679,7 +679,7 @@ protocols_sign(signature_t *sig, const public_key_t *pk, secret_key_t *sk, const
     ibz_finalize(&degree_resp_inv);
     ibz_finalize(&random_aux_norm);
 
-    ttime[3] += rdtsc() - t0;
+    //ttime[3] += rdtsc() - t0;
 
     return ret;
 }

@@ -2134,7 +2134,7 @@ _theta_chain_compute_impl(unsigned n,
                           bool verify,
                           bool randomize)
 {
-    uint64_t time;
+    //uint64_t time;
     theta_structure_t theta;
 
     // lift the basis
@@ -2310,18 +2310,18 @@ _theta_chain_compute_impl(unsigned n,
 
         // printf(" - eval time:\n");
         
-        time = rdtsc();
+        //time = rdtsc();
         for (unsigned j = 0; j < numP; ++j){
             theta_isogeny_eval(&pts2[j], &step, &pts[j]);
         }
-        time = rdtsc() - time;
+        //time = rdtsc() - time;
         //printf("\tRef: %lu\n", time);
 
-        uint64_t timeRef = rdtsc();
+        //uint64_t timeRef = rdtsc();
         for (unsigned j = 0; j < numP; ++j){
             theta_isogeny_eval_vec(&pts[j], &step, &pts[j]);
         }
-        timeRef = rdtsc() - timeRef;
+        //timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
 
 
@@ -2342,22 +2342,22 @@ _theta_chain_compute_impl(unsigned n,
         theta_point_t thetaQ1_2[space], thetaQ2_2[space];
         // printf(" - eval time2:\n");
 
-        time = rdtsc();
+        //time = rdtsc();
         for (int j = 0; j < current; ++j){
             theta_isogeny_eval(&thetaQ1_2[j], &step, &thetaQ1[j]);
             theta_isogeny_eval(&thetaQ2_2[j], &step, &thetaQ2[j]);
         }
-        time = rdtsc() - time;
+        //time = rdtsc() - time;
         // printf("\tRef: %lu\n", time);
         
-        timeRef = rdtsc();
+        //timeRef = rdtsc();
         for (int j = 0; j < current; ++j){
             theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
             theta_isogeny_eval_vec(&thetaQ2[j], &step, &thetaQ2[j]);
             /*assert(todo[j]);*/
             --todo[j];
         }
-        timeRef = rdtsc() - timeRef;
+        //timeRef = rdtsc() - timeRef;
         // printf("\tNeon: %lu\n", timeRef);
 
         for(int j = 0; j < current; ++j){
@@ -2428,11 +2428,11 @@ _theta_chain_compute_impl_randomized(unsigned n,
                           bool verify,
                           bool randomize)
 {
-    uint64_t time;
+    //uint64_t time;
     theta_structure_t theta;
 
     // lift the basis
-    time = rdtsc();
+    //time = rdtsc();
     theta_couple_jac_point_t xyT1, xyT2;
 
     ec_basis_t bas1 = { .P = ker->T1.P1, .Q = ker->T2.P1, .PmQ = ker->T1m2.P1 };
@@ -2466,7 +2466,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     todo[0] = n - 2 + extra;
 
     int current = 0;
-    time = rdtsc();
+    //time = rdtsc();
     // kernel points for the gluing isogeny
     theta_couple_jac_point_t jacQ1[space], jacQ2[space];
     jacQ1[0] = xyT1;
@@ -2491,7 +2491,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     theta_point_t thetaQ1[space], thetaQ2[space];
 
     // the gluing step
-    time = rdtsc();
+    //time = rdtsc();
     theta_gluing_t first_step;
     uint32x4_t vecQ1[space][18], vecQ2[space][18];
     {
@@ -2601,7 +2601,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     //theta_structure_t theta_ref;
     // theta_ref.null_point = first_step.codomain;
     // theta_ref.precomputation = 0;
-    time = rdtsc();
+    //time = rdtsc();
     {
         theta.null_point = first_step.codomain;
         theta.precomputation = 0;
@@ -2636,7 +2636,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     }
     //printf("theta_precomputation: %lu\n", rdtsc()-time);
 
-    time = rdtsc();
+    //time = rdtsc();
     //uint64_t time_structure = rdtsc();
     theta_isogeny_t step;
     // and now we do the remaining steps
@@ -2702,7 +2702,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
 
     for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
         assert(current < space);
-        time = rdtsc();
+        //time = rdtsc();
         int tcurrent = current;
         while (todo[current] != 1) {
             assert(todo[current] >= 2);
@@ -2725,7 +2725,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // computing the next step   
         int ret;
         uint32x4_t step_codomain[18], step_precomputation[18];
-        time = rdtsc();
+        //time = rdtsc();
         if (i == n - 2) // penultimate step
             /*step.hadamard_bool_1 = false*/
             /*step.hadamard_bool_2 = false*/
@@ -2754,8 +2754,8 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // pushing the kernel
         assert(todo[current] == 1);
         
-        uint64_t timeRef;
-        timeRef = rdtsc();
+        //uint64_t timeRef;
+        //timeRef = rdtsc();
         for (int j = 0; j < current; ++j){
             // theta_isogeny_eval_vec(&thetaQ1[j], &step, &thetaQ1[j]);
             // theta_montback(thetaQ1+j, &mb);
@@ -2769,10 +2769,10 @@ _theta_chain_compute_impl_randomized(unsigned n,
             assert(todo[j]);
             --todo[j];
         }
-        timeRef = rdtsc() - timeRef;
+        //timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
 
-        timeRef = rdtsc();
+        //timeRef = rdtsc();
         //fp_t mb = {104857, 0, 0, 0, 52776558133248}; // 2^267
         u32_montback(step_precomputation, mb32_cancelR1);
         for (unsigned j = 0; j < numP; ++j){
@@ -2781,7 +2781,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
             theta_isogeny_eval_vec_randomized(vecPts[j], step_precomputation, &step);
             //u32_montback(vecPts[j], mb32_3);
         }
-        timeRef = rdtsc() - timeRef;
+        //timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
 
         --current;
@@ -2797,7 +2797,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     //printf("theta_structure: %lu\n", rdtsc()-time_structure);
 
     /*assert(current == -1);*/
-    time = rdtsc();
+    //time = rdtsc();
     if (!extra_torsion) {
         if (n >= 3) {
             // in the last step we've skipped pushing the kernel since current was == 0, let's do it now
@@ -2822,7 +2822,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     //printf("theta_chain: %lu\n", rdtsc()-time);
 
     // final splitting step
-    time = rdtsc();
+    //time = rdtsc();
     theta_splitting_t last_step;
 
     bool is_split = splitting_compute(&last_step, &theta, extra_torsion ? 8 : -1, randomize);
@@ -2836,7 +2836,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     //printf("splitting: %lu\n", rdtsc()-time);
 
     // evaluate
-    time = rdtsc();
+    //time = rdtsc();
     for (size_t j = 0; j < numP; ++j) {
         apply_isomorphism(&pts[j], &last_step.M, &pts[j]);
         if (!theta_point_to_montgomery_point(&P12[j], &pts[j], &last_step.B))
@@ -2844,7 +2844,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     }
     // printf("evaluation: %lu\n", rdtsc()-time);
     //printf("================================\n");
-    time = time - rdtsc();
+    //time = time - rdtsc();
 
     return 1;
 }

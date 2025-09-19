@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <bench.h>
 
-static __inline__ uint64_t
-rdtsc(void)
-{
-    return (uint64_t)cpucycles();
-}
+//static __inline__ uint64_t
+//rdtsc(void)
+//{
+//    return (uint64_t)cpucycles();
+//}
 
 static int
 _fixed_degree_isogeny_impl(quat_left_ideal_t *lideal,
@@ -144,11 +144,11 @@ _fixed_degree_isogeny_impl(quat_left_ideal_t *lideal,
     ibz_mul(&two_pow, &two_pow, &ibz_const_two);
     ibz_mul(&two_pow, &two_pow, &ibz_const_two);
     ibz_copy(&tmp, u);
-    uint64_t time_inv = rdtsc();
+    //uint64_t time_inv = rdtsc();
 
     ibz_invmod(&tmp, &tmp, &two_pow);
 
-    time_inv = rdtsc() - time_inv;
+    //time_inv = rdtsc() - time_inv;
     
     assert(!ibz_is_even(&tmp));
 
@@ -785,7 +785,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
                                      const quat_left_ideal_t *lideal,
                                      const quat_alg_t *Bpoo)
 {
-    uint64_t time_all = rdtsc(), time_inv = 0, tttmp;
+    //uint64_t time_all = rdtsc(), time_inv = 0, tttmp;
     ibz_t target, tmp, two_pow;
     ;
     quat_alg_elem_t theta;
@@ -913,10 +913,10 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     pushed_points[2] = PmQ;
 
     // we perform the computation of phiu with a fixed degree isogeny
-    tttmp = rdtsc();
+    //tttmp = rdtsc();
     ret = fixed_degree_isogeny_and_eval(
         &idealu, u, true, &Fu_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points), index_order1); 
-    time_inv += rdtsc() - tttmp;
+    //time_inv += rdtsc() - tttmp;
     if (!ret) {
         goto cleanup;
     }
@@ -968,10 +968,10 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     pushed_points[2] = PmQ;
 
     // computation of phiv
-    tttmp = rdtsc();
+    //tttmp = rdtsc();
     ret = fixed_degree_isogeny_and_eval(
         &idealv, v, true, &Fv_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points), index_order2);
-    time_inv += rdtsc() - tttmp;
+    //time_inv += rdtsc() - tttmp;
     if (!ret) {
         goto cleanup;
     }
@@ -1028,7 +1028,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     ibz_mul(&theta.coord[3], &theta.coord[3], &tmp);
 
     // applying theta
-    tttmp = rdtsc();
+    //tttmp = rdtsc();
     endomorphism_application_even_basis(&bas2, 0, &Fv_codomain.E1, &theta, TORSION_EVEN_POWER);
     //time_inv += rdtsc() - tttmp;
 
@@ -1067,10 +1067,10 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
 
     theta_couple_curve_t theta_codomain;
 
-    tttmp = rdtsc();
+    //tttmp = rdtsc();
     ret = theta_chain_compute_and_eval_randomized(
         exp, &E01, &ker, false, &theta_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points));
-    time_inv += rdtsc() - tttmp;
+    //time_inv += rdtsc() - tttmp;
     //printf("theta_chain_all: %lu\n", rdtsc()-tttmp);
     if (!ret) {
         goto cleanup;
@@ -1182,7 +1182,7 @@ cleanup:
     ibz_finalize(&two_pow);
     quat_alg_elem_finalize(&theta);
 
-    time_all = rdtsc() - time_all;
+    //time_all = rdtsc() - time_all;
     //printf("All: %ld, fix + chain: %ld\n\n", time_all, time_inv);
 
     return ret;
