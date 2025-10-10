@@ -107,6 +107,11 @@ main(int argc, char *argv[])
         randombytes_select((unsigned char *)seed, sizeof(seed));
     }
 
+    uint32_t set[12] = {0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894};
+    for (int i=0; i<12; i++){
+        seed[i] = set[i];
+    }
+
     print_seed(seed);
 
 #if defined(TARGET_BIG_ENDIAN)

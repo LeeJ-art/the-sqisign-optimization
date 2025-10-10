@@ -26,7 +26,7 @@ _fixed_degree_isogeny_impl(quat_left_ideal_t *lideal,
                            size_t numP,
                            const int index_alternate_order)
 {
-
+    //uint64_t time_all = rdtsc(), time_inv = 0, tttmp;
 
     // var declaration
     int ret;
@@ -144,11 +144,9 @@ _fixed_degree_isogeny_impl(quat_left_ideal_t *lideal,
     ibz_mul(&two_pow, &two_pow, &ibz_const_two);
     ibz_mul(&two_pow, &two_pow, &ibz_const_two);
     ibz_copy(&tmp, u);
-    //uint64_t time_inv = rdtsc();
+
 
     ibz_invmod(&tmp, &tmp, &two_pow);
-
-    //time_inv = rdtsc() - time_inv;
     
     assert(!ibz_is_even(&tmp));
 
@@ -174,9 +172,9 @@ _fixed_degree_isogeny_impl(quat_left_ideal_t *lideal,
     theta_kernel_couple_points_t dim_two_ker;
     copy_bases_to_kernel(&dim_two_ker, &B0_two, &B0_two_theta);
 
-
+    //tttmp = rdtsc();
     ret = theta_chain_compute_and_eval(length, &E00, &dim_two_ker, true, E34, P12, numP);
-
+    //time_inv += (rdtsc() - tttmp);
 
     if (!ret)
         goto cleanup;
@@ -189,6 +187,9 @@ cleanup:
     ibz_finalize(&two_pow);
     ibz_finalize(&tmp);
     quat_alg_elem_finalize(&theta);
+
+    //time_all = rdtsc() - time_all;
+    //printf("Fix: %lu, In theta_chain: %lu\n---------\n", time_all, time_inv);
 
     return ret;
 }
@@ -787,7 +788,7 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
 {
     //uint64_t time_all = rdtsc(), time_inv = 0, tttmp;
     ibz_t target, tmp, two_pow;
-    ;
+    
     quat_alg_elem_t theta;
 
     ibz_t norm_d;
@@ -1070,8 +1071,13 @@ dim2id2iso_ideal_to_isogeny_clapotis(quat_alg_elem_t *beta1,
     //tttmp = rdtsc();
     ret = theta_chain_compute_and_eval_randomized(
         exp, &E01, &ker, false, &theta_codomain, pushed_points, sizeof(pushed_points) / sizeof(*pushed_points));
+
     //time_inv += rdtsc() - tttmp;
     //printf("theta_chain_all: %lu\n", rdtsc()-tttmp);
+
+    //time_inv += rdtsc() - tttmp;
+    //printf("theta_chain_compute_and_eval_randomized: %lu\n", rdtsc()-tttmp);
+
     if (!ret) {
         goto cleanup;
     }

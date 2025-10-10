@@ -1429,9 +1429,7 @@ theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const the
     // reduce
     prop_2(pt);
     prop_2(pt+9);
-
     uint32x4_t reCarry = div5(pt+8), imCarry = div5(pt+17);
-
     pt[0] = vaddq_u32(pt[0], reCarry);
     pt[9] = vaddq_u32(pt[9], imCarry);
 
@@ -1447,6 +1445,7 @@ theta_isogeny_eval_vec(theta_point_t *out, const theta_isogeny_t *phi, const the
     }
 }
 
+// 5-star fn
 void theta_isogeny_eval_vec_randomized(uint32x4_t *pt, uint32x4_t *phit, const theta_isogeny_t *phi)
 {
     // 0-8 real, 9-17 imagination
@@ -1545,25 +1544,25 @@ int theta_isogeny_compute_vec(theta_isogeny_t *out,
     fp2_mul_batched(codomain, t2, TT2_transpose);
     fp2_mul_batched(precomputation, (uint32x4_t*)t3, t1);
 
-    // carry
-    reCarry = div5(codomain+8);
-    imCarry = div5(codomain+17);
+    // // carry
+    // reCarry = div5(codomain+8);
+    // imCarry = div5(codomain+17);
 
-    codomain[0] = vaddq_u32(codomain[0], reCarry);
-    codomain[9] = vaddq_u32(codomain[9], imCarry);
+    // codomain[0] = vaddq_u32(codomain[0], reCarry);
+    // codomain[9] = vaddq_u32(codomain[9], imCarry);
 
-    prop_2(codomain);
-    prop_2(codomain+9);
+    // prop_2(codomain);
+    // prop_2(codomain+9);
 
-    // carry
-    reCarry = div5(precomputation+8);
-    imCarry = div5(precomputation+17);
+    // // carry
+    // reCarry = div5(precomputation+8);
+    // imCarry = div5(precomputation+17);
 
-    precomputation[0] = vaddq_u32(precomputation[0], reCarry);
-    precomputation[9] = vaddq_u32(precomputation[9], imCarry);
+    // precomputation[0] = vaddq_u32(precomputation[0], reCarry);
+    // precomputation[9] = vaddq_u32(precomputation[9], imCarry);
 
-    prop_2(precomputation);
-    prop_2(precomputation+9);
+    // prop_2(precomputation);
+    // prop_2(precomputation+9);
 
     // copy
     for(int i = 0;i<18;i++){
@@ -1576,25 +1575,25 @@ int theta_isogeny_compute_vec(theta_isogeny_t *out,
 
     if (verify) {
         fp2_mul_batched(t2, TT1_transpose, precomputation);
-        // carry
-        reCarry = div5(t2+8);
-        imCarry = div5(t2+17);
-        t2[0] = vaddq_u32(t2[0], reCarry);
-        t2[9] = vaddq_u32(t2[9], imCarry);
-        prop_2(t2);
-        prop_2(t2+9);
+        // // carry
+        // reCarry = div5(t2+8);
+        // imCarry = div5(t2+17);
+        // t2[0] = vaddq_u32(t2[0], reCarry);
+        // t2[9] = vaddq_u32(t2[9], imCarry);
+        // prop_2(t2);
+        // prop_2(t2+9);
         for(int i = 0;i<18;i++){
             if(t2[i][0] != t2[i][1]) return 0;
             if(t2[i][2] != t2[i][3]) return 0;
         }
         fp2_mul_batched(t1, TT2_transpose, precomputation);
-        // carry
-        reCarry = div5(t2+8);
-        imCarry = div5(t2+17);
-        t2[0] = vaddq_u32(t2[0], reCarry);
-        t2[9] = vaddq_u32(t2[9], imCarry);
-        prop_2(t2);
-        prop_2(t2+9);
+        // // carry
+        // reCarry = div5(t2+8);
+        // imCarry = div5(t2+17);
+        // t2[0] = vaddq_u32(t2[0], reCarry);
+        // t2[9] = vaddq_u32(t2[9], imCarry);
+        // prop_2(t2);
+        // prop_2(t2+9);
         for(int i = 0;i<18;i++){
             if(t2[i][0] != t2[i][1]) return 0;
             if(t2[i][2] != t2[i][3]) return 0;
@@ -1983,6 +1982,7 @@ _theta_chain_compute_impl_ref(unsigned n,
     theta_couple_jac_point_t jacQ1[space], jacQ2[space];
     jacQ1[0] = xyT1;
     jacQ2[0] = xyT2;
+
     while (todo[current] != 1) {
         assert(todo[current] >= 2);
         ++current;
@@ -2032,6 +2032,7 @@ _theta_chain_compute_impl_ref(unsigned n,
     theta_precomputation(&theta);
 
     theta_isogeny_t step;
+
 
     // and now we do the remaining steps
     for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
@@ -2226,8 +2227,8 @@ _theta_chain_compute_impl(unsigned n,
     // theta_precomputation(&theta_ref);
 
     transpose_theta_precomputation_vec(&theta);
-    fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-    fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
+    // fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+    // fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
     theta_point_t dg, dg2;
     dg.x = theta.XYT0;
     dg.y = theta.YZT0;
@@ -2239,8 +2240,8 @@ _theta_chain_compute_impl(unsigned n,
     dg2.z = theta.xzt0;
     dg2.t = theta.xyz0;
 
-    theta_montback(&dg, &mb5);
-    theta_montback(&dg2, &mb2);
+    // theta_montback(&dg, &mb5);
+    // theta_montback(&dg2, &mb2);
 
     theta.XYT0 = dg.x;
     theta.YZT0 = dg.y;
@@ -2296,9 +2297,9 @@ _theta_chain_compute_impl(unsigned n,
         //printf("vec: %lu\n\n", rdtsc()-time);
 
         // mont back
-        fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-        theta_montback(&step.codomain.null_point, &montback);
-        theta_montback(&step.precomputation, &montback);
+        // fp_t montback = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+        // theta_montback(&step.codomain.null_point, &montback);
+        // theta_montback(&step.precomputation, &montback);
         // choose_small(&step_ref.codomain.null_point, &step.codomain.null_point);
         // choose_small(&step_ref.precomputation, &step.precomputation);
 
@@ -2608,8 +2609,8 @@ _theta_chain_compute_impl_randomized(unsigned n,
         // theta_precomputation(&theta_ref);
 
         transpose_theta_precomputation_vec(&theta);
-        fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
-        fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
+        // fp_t mb5 = {27487790694, 0, 0, 0, 35184372088832}; // 2^(261*5-255*4)
+        // fp_t mb2 = {104857, 0, 0, 0, 52776558133248}; // 2^(261*2-255*1)
         theta_point_t dg, dg2;
         dg.x = theta.XYT0;
         dg.y = theta.YZT0;
@@ -2621,8 +2622,8 @@ _theta_chain_compute_impl_randomized(unsigned n,
         dg2.z = theta.xzt0;
         dg2.t = theta.xyz0;
 
-        theta_montback(&dg, &mb5);
-        theta_montback(&dg2, &mb2);
+        // theta_montback(&dg, &mb5);
+        // theta_montback(&dg2, &mb2);
 
         theta.XYT0 = dg.x;
         theta.YZT0 = dg.y;
@@ -2648,57 +2649,58 @@ _theta_chain_compute_impl_randomized(unsigned n,
     }
 
     //(2**(261*6-255*(5)))%q
-    uint32x4_t mb32_6[18], mb32_3[18];
-    uint32x4_t mb32_trace[18], mb32_cancelR1[18] = {0};
+    //uint32x4_t mb32_3[18];
+    //uint32x4_t mb32_6[18];
+    // uint32x4_t mb32_trace[18];
+    uint32x4_t mb32_cancelR1[18] = {0};
     mb32_cancelR1[0] = mb32_cancelR1[9] = vdupq_n_u32(64);
     for (int i=0; i<2; i++){
-        mb32_6[i*9] = vdupq_n_u32(429496729);
-        mb32_6[i*9+1] = vdupq_n_u32(3276);
-        mb32_6[i*9+2] = vdupq_n_u32(0);
-        mb32_6[i*9+3] = vdupq_n_u32(0);
-        mb32_6[i*9+4] = vdupq_n_u32(0);
-        mb32_6[i*9+5] = vdupq_n_u32(0);
-        mb32_6[i*9+6] = vdupq_n_u32(0);
-        mb32_6[i*9+7] = vdupq_n_u32(0);
-        mb32_6[i*9+8] = vdupq_n_u32(196608);
+        // mb32_6[i*9] = vdupq_n_u32(429496729);
+        // mb32_6[i*9+1] = vdupq_n_u32(3276);
+        // mb32_6[i*9+2] = vdupq_n_u32(0);
+        // mb32_6[i*9+3] = vdupq_n_u32(0);
+        // mb32_6[i*9+4] = vdupq_n_u32(0);
+        // mb32_6[i*9+5] = vdupq_n_u32(0);
+        // mb32_6[i*9+6] = vdupq_n_u32(0);
+        // mb32_6[i*9+7] = vdupq_n_u32(0);
+        // mb32_6[i*9+8] = vdupq_n_u32(196608);
 
-        mb32_3[i*9] = vdupq_n_u32(6710886);
-        mb32_3[i*9+1] = vdupq_n_u32(0);
-        mb32_3[i*9+2] = vdupq_n_u32(0);
-        mb32_3[i*9+3] = vdupq_n_u32(0);
-        mb32_3[i*9+4] = vdupq_n_u32(0);
-        mb32_3[i*9+5] = vdupq_n_u32(0);
-        mb32_3[i*9+6] = vdupq_n_u32(0);
-        mb32_3[i*9+7] = vdupq_n_u32(0);
-        mb32_3[i*9+8] = vdupq_n_u32(131072);
+        // mb32_3[i*9] = vdupq_n_u32(6710886);
+        // mb32_3[i*9+1] = vdupq_n_u32(0);
+        // mb32_3[i*9+2] = vdupq_n_u32(0);
+        // mb32_3[i*9+3] = vdupq_n_u32(0);
+        // mb32_3[i*9+4] = vdupq_n_u32(0);
+        // mb32_3[i*9+5] = vdupq_n_u32(0);
+        // mb32_3[i*9+6] = vdupq_n_u32(0);
+        // mb32_3[i*9+7] = vdupq_n_u32(0);
+        // mb32_3[i*9+8] = vdupq_n_u32(131072);
         
         //261*9-255*7
-        mb32_trace[i*9] = vdupq_n_u32(64424509);
-        mb32_trace[i*9+1] = vdupq_n_u32(408021893);
-        mb32_trace[i*9+2] = vdupq_n_u32(214748405);
-        mb32_trace[i*9+3] = vdupq_n_u32(107374182);
-        mb32_trace[i*9+4] = vdupq_n_u32(322122547);
-        mb32_trace[i*9+5] = vdupq_n_u32(429496729);
-        mb32_trace[i*9+6] = vdupq_n_u32(214748364);
-        mb32_trace[i*9+7] = vdupq_n_u32(107374182);
-        mb32_trace[i*9+8] = vdupq_n_u32(144179);
+        // mb32_trace[i*9] = vdupq_n_u32(64424509);
+        // mb32_trace[i*9+1] = vdupq_n_u32(408021893);
+        // mb32_trace[i*9+2] = vdupq_n_u32(214748405);
+        // mb32_trace[i*9+3] = vdupq_n_u32(107374182);
+        // mb32_trace[i*9+4] = vdupq_n_u32(322122547);
+        // mb32_trace[i*9+5] = vdupq_n_u32(429496729);
+        // mb32_trace[i*9+6] = vdupq_n_u32(214748364);
+        // mb32_trace[i*9+7] = vdupq_n_u32(107374182);
+        // mb32_trace[i*9+8] = vdupq_n_u32(144179);
     }
 
-    for (unsigned j = 0; j < numP; ++j) u32_montback(vecPts[j], mb32_trace); //R2^{-2}
+    //for (unsigned j = 0; j < numP; ++j) u32_montback(vecPts[j], mb32_trace); //R2^{-2}
 
     //255-261*2
-    for (int i=0; i<2; i++){
-        mb32_trace[i*9] = vdupq_n_u32(0);
-        mb32_trace[i*9+1] = vdupq_n_u32(0);
-        mb32_trace[i*9+2] = vdupq_n_u32(0);
-        mb32_trace[i*9+3] = vdupq_n_u32(0);
-        mb32_trace[i*9+4] = vdupq_n_u32(0);
-        mb32_trace[i*9+5] = vdupq_n_u32(0);
-        mb32_trace[i*9+6] = vdupq_n_u32(0);
-        mb32_trace[i*9+7] = vdupq_n_u32(67108864);
-        mb32_trace[i*9+8] = vdupq_n_u32(3);
-    }
-
+    // for (int i=0; i<2; i++){
+    //     mb32_trace[i*9] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+1] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+2] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+3] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+4] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+5] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+6] = vdupq_n_u32(0);
+    //     mb32_trace[i*9+7] = vdupq_n_u32(67108864);
+    //     mb32_trace[i*9+8] = vdupq_n_u32(3);
+    // }
 
     for (unsigned i = 1; current >= 0 && todo[current]; ++i) {
         assert(current < space);
@@ -2741,8 +2743,8 @@ _theta_chain_compute_impl_randomized(unsigned n,
             /*step.hadamard_bool_2 = true*/
             //ret = theta_isogeny_compute_vec(&step, &theta, &thetaQ1[current], &thetaQ2[current], 0, 1, verify);
             ret = theta_isogeny_compute_vec_randomized(&step, step_codomain, step_precomputation, &theta, vecQ1[current], vecQ2[current], 0, 1);
-        u32_montback(step_codomain, mb32_6);
-        u32_montback(step_precomputation, mb32_6);
+        // u32_montback(step_codomain, mb32_6); montback needed?
+        // u32_montback(step_precomputation, mb32_6);
         itranspose(&step.codomain.null_point, step_codomain);
         itranspose(&step.precomputation, step_precomputation);
         //printf("\tvec: %lu\n", rdtsc()-time);
@@ -2763,8 +2765,8 @@ _theta_chain_compute_impl_randomized(unsigned n,
             // theta_montback(thetaQ2+j, &mb);
             theta_isogeny_eval_vec_randomized(vecQ1[j], step_precomputation, &step);
             theta_isogeny_eval_vec_randomized(vecQ2[j], step_precomputation, &step);
-            u32_montback(vecQ1[j], mb32_3);
-            u32_montback(vecQ2[j], mb32_3);
+            // u32_montback(vecQ1[j], mb32_3); montback needed ??
+            // u32_montback(vecQ2[j], mb32_3);
 
             assert(todo[j]);
             --todo[j];
@@ -2780,6 +2782,9 @@ _theta_chain_compute_impl_randomized(unsigned n,
             // theta_montback(&pts[j], &mb);
             theta_isogeny_eval_vec_randomized(vecPts[j], step_precomputation, &step);
             //u32_montback(vecPts[j], mb32_3);
+            //aR1*bR1/R1 =  abR1
+            //R1 = 2^255, R2 = 2^6
+            //
         }
         //timeRef = rdtsc() - timeRef;
         //printf("\tNeon: %lu\n", timeRef);
@@ -2791,7 +2796,7 @@ _theta_chain_compute_impl_randomized(unsigned n,
     itranspose(thetaQ1, vecQ1[cflag]);
     itranspose(thetaQ2, vecQ2[cflag]);
     for (unsigned j = 0; j < numP; ++j){
-        u32_montback(vecPts[j], mb32_trace);
+        // u32_montback(vecPts[j], mb32_trace); montback needed?
         itranspose(pts+j, vecPts[j]);
     }
     //printf("theta_structure: %lu\n", rdtsc()-time_structure);
@@ -2859,6 +2864,7 @@ theta_chain_compute_and_eval(unsigned n,
                              theta_couple_point_t *P12,
                              size_t numP)
 {
+    //printf("********************eval********************\n");
     //return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
     return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, false, false);
 }
@@ -2874,7 +2880,9 @@ theta_chain_compute_and_eval_verify(unsigned n,
                                     theta_couple_point_t *P12,
                                     size_t numP)
 {
-    return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, true, false);
+    //printf("********************verify********************\n");
+    //return _theta_chain_compute_impl_ref(n, E12, ker, extra_torsion, E34, P12, numP, true, false);
+    return _theta_chain_compute_impl_randomized(n, E12, ker, extra_torsion, E34, P12, numP, true, false);
 }
 
 int

@@ -352,10 +352,11 @@ uint32_t fp2_is_zero_32(const uint32x4_t* p, int x){
 
 
 void fp2_add_batched(uint32x4_t* out, uint32x4_t *a, uint32x4_t *b){
-    for (int i=0; i<9; i++){
-        out[i] = vaddq_u32(a[i], b[i]);
-        out[i+9] = vaddq_u32(a[i+9], b[i+9]);
-    }
+    // for (int i=0; i<9; i++){
+    //     out[i] = vaddq_u32(a[i], b[i]);
+    //     out[i+9] = vaddq_u32(a[i+9], b[i+9]);
+    // }
+    __fp2_add_batched_asm(out, a, b);
 
     // reduce
     // prop_2(out);
@@ -415,11 +416,12 @@ void to_squared_theta_batched(uint32x4_t *out, uint32x4_t *a){
     for(int i = 0;i<9;i++) dummy[i] = vaddq_u32(a[i+9], a[i+9]);
 
     // img = real * img
-    // fp_mul_batched((uint32x2_t*) out+18, a, out+9);
-    fp_mul_batched((uint32x2_t*) out+18, a, dummy);
+    //fp_mul_batched((uint32x2_t*) out+18, a, dummy);
+    __fp_mul_shift_batched__asm((uint32x2_t*) out+18, a, dummy);
 
     // real = tmp0 * tmp1
-    fp_mul_batched((uint32x2_t*) out, tmp, tmp+9);
+    //fp_mul_batched((uint32x2_t*) out, tmp, tmp+9);
+    __fp_mul_shift_batched__asm((uint32x2_t*) out, tmp, tmp+9);
 
     for(int i = 0;i<18;i++){
       tmp[0][0] = out[i][0] + out[i][1];
@@ -454,11 +456,14 @@ void fp2_mul_batched(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b){
     // tmp_b = b_re + b_im
     for(int i = 0;i<9;i++) tmp[i+9] = vaddq_u32(b[i], b[i+9]);
     // c1
-    fp_mul_batched((uint32x2_t*)tmp, tmp, tmp+9);
+    //fp_mul_batched((uint32x2_t*)tmp, tmp, tmp+9);
+    __fp_mul_shift_batched__asm((uint32x2_t*)tmp, tmp, tmp+9);
     // c2
-    fp_mul_batched(((uint32x2_t*)tmp)+18, a+9, b+9);
+    //fp_mul_batched(((uint32x2_t*)tmp)+18, a+9, b+9);
+    __fp_mul_shift_batched__asm(((uint32x2_t*)tmp)+18, a+9, b+9);
     // c0
-    fp_mul_batched((uint32x2_t*)out, a, b);
+    //fp_mul_batched((uint32x2_t*)out, a, b);
+    __fp_mul_shift_batched__asm((uint32x2_t*)out, a, b);
     
     for(int i = 0;i<9;i++){
         out[i+9] = vaddq_u32(tmp[i], q[i]);
@@ -501,8 +506,10 @@ void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a){
     for(int i = 0;i<9;i++) q[i] = vaddq_u32(a[i+9], a[i+9]);
 
     // img = real * img
-    fp_mul_batched((uint32x2_t*) b+18, a, q);
+    //fp_mul_batched((uint32x2_t*) b+18, a, q);
+    __fp_mul_shift_batched__asm((uint32x2_t*) b+18, a, q);
 
     // real = tmp0 * tmp1
-    fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
+    //fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
+    __fp_mul_shift_batched__asm((uint32x2_t*) b, tmp, tmp+9);
 }

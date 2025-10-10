@@ -242,9 +242,13 @@ xDBL(ec_point_t *Q, const ec_point_t *P, const ec_point_t *AC)
     fp2_sqr(&t0, &t0);
     fp2_sub(&t1, &P->x, &P->z);
     fp2_sqr(&t1, &t1);
+
     fp2_sub(&t2, &t0, &t1);
+    
     fp2_add(&t3, &AC->z, &AC->z);
+    
     fp2_mul(&t1, &t1, &t3);
+    
     fp2_add(&t1, &t1, &t1);
     fp2_mul(&Q->x, &t0, &t1);
     fp2_add(&t0, &t3, &AC->x);

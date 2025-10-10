@@ -1,0 +1,50 @@
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   122.106 | stddev    16.786 | median   126.517 | min    79.071 | max   150.932  (milliseconds)
+  sign       | average   298.404 | stddev    27.572 | median   297.520 | min   212.770 | max   364.857  (milliseconds)
+  verify     | average    31.242 | stddev     3.024 | median    32.241 | min    21.245 | max    32.581  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   126.906 | stddev    13.564 | median   128.973 | min    81.274 | max   158.709  (milliseconds)
+  sign       | average   291.591 | stddev    28.290 | median   293.225 | min   211.607 | max   361.512  (milliseconds)
+  verify     | average    31.176 | stddev     3.098 | median    32.281 | min    21.313 | max    32.600  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   124.358 | stddev    18.008 | median   125.784 | min    79.925 | max   160.836  (milliseconds)
+  sign       | average   289.257 | stddev    28.334 | median   295.243 | min   220.078 | max   353.915  (milliseconds)
+  verify     | average    29.375 | stddev     4.513 | median    32.203 | min    21.378 | max    32.550  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   113.500 | stddev    18.545 | median   118.243 | min    79.704 | max   156.024  (milliseconds)
+  sign       | average   272.936 | stddev    43.092 | median   273.708 | min   175.039 | max   522.241  (milliseconds)
+  verify     | average    26.275 | stddev     5.013 | median    23.993 | min    21.165 | max    32.646  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   119.324 | stddev    21.306 | median   121.706 | min    79.300 | max   216.810  (milliseconds)
+  sign       | average   272.310 | stddev    31.961 | median   276.910 | min   196.957 | max   342.261  (milliseconds)
+  verify     | average    28.341 | stddev     5.034 | median    32.114 | min    21.052 | max    32.580  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   112.992 | stddev    19.883 | median   113.206 | min    78.935 | max   165.014  (milliseconds)
+  sign       | average   259.526 | stddev    34.654 | median   256.415 | min   185.487 | max   354.170  (milliseconds)
+  verify     | average    28.240 | stddev     5.007 | median    32.083 | min    21.340 | max    32.567  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   114.801 | stddev    21.024 | median   120.303 | min    78.905 | max   168.007  (milliseconds)
+  sign       | average   259.370 | stddev    37.591 | median   263.467 | min   176.117 | max   362.436  (milliseconds)
+  verify     | average    27.925 | stddev     5.003 | median    32.037 | min    21.218 | max    32.846  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   109.525 | stddev    21.169 | median   106.102 | min    77.997 | max   159.555  (milliseconds)
+  sign       | average   252.984 | stddev    32.778 | median   251.336 | min   181.579 | max   338.575  (milliseconds)
+  verify     | average    26.227 | stddev     5.041 | median    22.934 | min    21.296 | max    32.611  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   110.877 | stddev    20.422 | median   114.592 | min    78.763 | max   163.964  (milliseconds)
+  sign       | average   249.524 | stddev    39.017 | median   245.900 | min   180.252 | max   430.812  (milliseconds)
+  verify     | average    26.034 | stddev     5.135 | median    21.666 | min    21.078 | max    32.589  (milliseconds)
+Random seed: "--seed={ 0x251232ae, 0x62691003, 0x9e2ac698, 0x02d25840, 0x5a2394de, 0x2a0823ef, 0xdb2adbba, 0xd1fb9ee8, 0xedcf991f, 0xddc6097e, 0x66db17c4, 0x9fe2b894 }"
+SQIsign_lvl1 (100 iterations)
+  keypair    | average   101.404 | stddev    16.997 | median    96.537 | min    77.620 | max   140.269  (milliseconds)
+  sign       | average   243.305 | stddev    33.820 | median   239.845 | min   179.602 | max   342.500  (milliseconds)
+  verify     | average    24.895 | stddev     4.779 | median    21.570 | min    20.923 | max    32.540  (milliseconds)

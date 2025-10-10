@@ -56,5 +56,7 @@ int flatten32(uint32_t *n);
 int modfsb32(uint32_t *n);
 void redc32(uint32_t *n, uint32_t *m);
 uint32_t fp_is_zero_32(uint32_t* p);
-
+void __fp_mul_batched_asm(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b);
+void __fp_mul_shift_batched__asm(uint32x2_t *out, uint32x4_t *a, uint32x4_t *b);
+void __fp2_add_batched_asm(uint32x4_t *out, uint32x4_t *a, uint32x4_t *b);
 #endif
