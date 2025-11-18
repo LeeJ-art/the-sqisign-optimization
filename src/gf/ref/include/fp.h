@@ -12,6 +12,13 @@
 #include <fp_constants.h>
 #include <arm_neon.h>
 
+#if defined(__APPLE__)
+    #define __fp_mul_asm __fp_mul_batched_asm
+#else
+    #define __fp_mul_asm __fp_mul_shift_batched__asm
+#endif
+
+
 typedef digit_t fp_t[NWORDS_FIELD]; // Datatype for representing field elements
 
 extern const digit_t ONE[NWORDS_FIELD];
