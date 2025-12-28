@@ -638,6 +638,14 @@ transpose_matrix(uint32x4_t (*Out)[18], const basis_change_matrix_t* In){
     transpose(Out[3], tp);
 }
 
+extern int xDBLMUL_vec(ec_point_t *S,
+        const ec_point_t *P,
+        const digit_t *k,
+        const ec_point_t *Q,
+        const digit_t *l,
+        const ec_point_t *PQ,
+        const int kbits,
+        const ec_curve_t *curve);
 // end of hd_functions
 /**
  * @}

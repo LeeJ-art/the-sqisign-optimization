@@ -38,6 +38,7 @@ void fp2_print(const char *name, const fp2_t *a);
 void fp2_encode(void *dst, const fp2_t *a);
 uint32_t fp2_decode(fp2_t *d, const void *src);
 void fp2_select(fp2_t *d, const fp2_t *a0, const fp2_t *a1, uint32_t ctl);
+void fp2_select_vec(uint32x4_t* out, uint32x4_t* in, uint32x4_t ctl_vec);
 void fp2_cswap(fp2_t *a, fp2_t *b, uint32_t ctl);
 
 /*New vectorization*/

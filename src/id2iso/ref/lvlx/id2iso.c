@@ -20,7 +20,7 @@ ec_biscalar_mul_ibz_vec(ec_point_t *res,
     digit_t scalars[2][NWORDS_ORDER];
     ibz_to_digit_array(scalars[0], &(*scalar_vec)[0]);
     ibz_to_digit_array(scalars[1], &(*scalar_vec)[1]);
-    ec_biscalar_mul(res, scalars[0], scalars[1], f, PQ, curve);
+    ec_biscalar_mul_vec(res, scalars[0], scalars[1], f, PQ, curve);
 }
 
 // Given an ideal, computes the scalars s0, s1 which determine the kernel generator
@@ -112,12 +112,12 @@ matrix_application_even_basis(ec_basis_t *bas, const ec_curve_t *E, ibz_mat_2x2_
     // first basis element R = [a]P + [b]Q
     ibz_to_digit_array(scalars[0], &(*mat)[0][0]);
     ibz_to_digit_array(scalars[1], &(*mat)[1][0]);
-    ec_biscalar_mul(&bas->P, scalars[0], scalars[1], f, &tmp_bas, E);
+    ec_biscalar_mul_vec(&bas->P, scalars[0], scalars[1], f, &tmp_bas, E);
 
     // second basis element S = [c]P + [d]Q
     ibz_to_digit_array(scalars[0], &(*mat)[0][1]);
     ibz_to_digit_array(scalars[1], &(*mat)[1][1]);
-    ec_biscalar_mul(&bas->Q, scalars[0], scalars[1], f, &tmp_bas, E);
+    ec_biscalar_mul_vec(&bas->Q, scalars[0], scalars[1], f, &tmp_bas, E);
 
     // Their difference R - S = [a - c]P + [b - d]Q
     ibz_sub(&tmp, &(*mat)[0][0], &(*mat)[0][1]);
@@ -126,7 +126,7 @@ matrix_application_even_basis(ec_basis_t *bas, const ec_curve_t *E, ibz_mat_2x2_
     ibz_sub(&tmp, &(*mat)[1][0], &(*mat)[1][1]);
     ibz_mod(&tmp, &tmp, &pow_two);
     ibz_to_digit_array(scalars[1], &tmp);
-    ret = ec_biscalar_mul(&bas->PmQ, scalars[0], scalars[1], f, &tmp_bas, E);
+    ret = ec_biscalar_mul_vec(&bas->PmQ, scalars[0], scalars[1], f, &tmp_bas, E);
 
     ibz_finalize(&tmp);
     ibz_finalize(&pow_two);

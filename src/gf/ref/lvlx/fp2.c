@@ -513,3 +513,9 @@ void fp2_sqr_batched(uint32x4_t* b, uint32x4_t *a){
     //fp_mul_batched((uint32x2_t*) b, tmp, tmp+9);
     __fp_mul_asm((uint32x2_t*) b, tmp, tmp+9);
 }
+
+void fp2_select_vec(uint32x4_t* out, uint32x4_t* in, uint32x4_t ctl_vec){
+    for (int i=0; i<9; i++){
+        out[i] = veorq_u32(in[i], vandq_u32(ctl_vec, veorq_u32(in[i], in[i+9])));
+    }
+}

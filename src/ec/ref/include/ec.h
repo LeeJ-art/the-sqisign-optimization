@@ -208,6 +208,7 @@ void ec_normalize_curve_and_A24(ec_curve_t *E);
 uint32_t ec_has_zero_coordinate(const ec_point_t *P);
 void select_point(ec_point_t *Q, const ec_point_t *P1, const ec_point_t *P2, const digit_t option);
 void cswap_points(ec_point_t *P, ec_point_t *Q, const digit_t option);
+void cswap_points_vec(uint32x4_t *P, uint32x4_t *Q, const uint32_t option);
 
 /**
  * @brief Given a curve E, compute (A+2 : 4C)
@@ -325,9 +326,18 @@ void ec_normalize_point(ec_point_t *P);
 void xDBL_E0(ec_point_t *Q, const ec_point_t *P);
 void xADD(ec_point_t *R, const ec_point_t *P, const ec_point_t *Q, const ec_point_t *PQ);
 void xDBL_A24(ec_point_t *Q, const ec_point_t *P, const ec_point_t *A24, const bool A24_normalized);
-void xADD2_vec(
+
+void xADD2_ec_vec(
     ec_point_t *R1, const ec_point_t *P1, const ec_point_t *Q1, const ec_point_t *PQ1,
     ec_point_t *R2, const ec_point_t *P2, const ec_point_t *Q2, const ec_point_t *PQ2);
+
+void xADD2_vec(
+    uint32x4_t *R1, const uint32x4_t *P1, const uint32x4_t *PQ1,
+    uint32x4_t *R2, const uint32x4_t *P2, const uint32x4_t *PQ2);
+
+void xDBL_E0_vec(uint32x4_t *Q, const uint32x4_t *P);
+void xDBL_A24_vec(uint32x4_t *Q, const uint32x4_t *P, const uint32x4_t *A24, const bool A24_normalized);
+
 
 /**
  * @brief Point doubling
@@ -406,6 +416,13 @@ int ec_biscalar_mul(ec_point_t *res,
                     const ec_basis_t *PQ,
                     const ec_curve_t *curve);
 
+int
+ec_biscalar_mul_vec(ec_point_t *res,
+                const digit_t *scalarP,
+                const digit_t *scalarQ,
+                const int kbits,
+                const ec_basis_t *PQ,
+                const ec_curve_t *curve);
 // end point computations
 /**
  * @}
