@@ -205,6 +205,10 @@ void ec_curve_normalize_A24(ec_curve_t *E);
  */
 void ec_normalize_curve_and_A24(ec_curve_t *E);
 
+uint32_t ec_has_zero_coordinate(const ec_point_t *P);
+void select_point(ec_point_t *Q, const ec_point_t *P1, const ec_point_t *P2, const digit_t option);
+void cswap_points(ec_point_t *P, ec_point_t *Q, const digit_t option);
+
 /**
  * @brief Given a curve E, compute (A+2 : 4C)
  *
@@ -321,6 +325,9 @@ void ec_normalize_point(ec_point_t *P);
 void xDBL_E0(ec_point_t *Q, const ec_point_t *P);
 void xADD(ec_point_t *R, const ec_point_t *P, const ec_point_t *Q, const ec_point_t *PQ);
 void xDBL_A24(ec_point_t *Q, const ec_point_t *P, const ec_point_t *A24, const bool A24_normalized);
+void xADD2_vec(
+    ec_point_t *R1, const ec_point_t *P1, const ec_point_t *Q1, const ec_point_t *PQ1,
+    ec_point_t *R2, const ec_point_t *P2, const ec_point_t *Q2, const ec_point_t *PQ2);
 
 /**
  * @brief Point doubling

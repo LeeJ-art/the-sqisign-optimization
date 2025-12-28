@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <mp.h>
 #include <ec.h>
+#include <hd.h>
 
 void
 ec_point_init(ec_point_t *P)
@@ -301,6 +302,88 @@ xADD(ec_point_t *R, const ec_point_t *P, const ec_point_t *Q, const ec_point_t *
     fp2_copy(&R->x, &t2);
 }
 
+void xADD2_vec(
+    ec_point_t *R1, const ec_point_t *P1, const ec_point_t *Q1, const ec_point_t *PQ1,
+    ec_point_t *R2, const ec_point_t *P2, const ec_point_t *Q2, const ec_point_t *PQ2
+    )
+{ 
+  // DO two set xADD
+  // Differential addition of Montgomery points in projective coordinates (X:Z).
+  // Input: projective Montgomery points P=(XP:ZP) and Q=(XQ:ZQ) such that xP=XP/ZP and xQ=XQ/ZQ, and difference
+  //        PQ=P-Q=(XPQ:ZPQ).
+  // Output: projective Montgomery point R <- P+Q = (XR:ZR) such that x(P+Q)=XR/ZR.
+    theta_point_t tp;
+    tp.x = P1->x;
+    tp.y = Q1->x;
+    tp.z = P2->x;
+    tp.t = Q2->x;
+    uint32x4_t In1[18], In2[18];
+    transpose(In1, tp);
+    tp.x = P1->z;
+    tp.y = Q1->z;
+    tp.z = P2->z;
+    tp.t = Q2->z;
+    transpose(In2, tp);
+
+    uint32x4_t a[18], b[18];
+    fp2_add_batched(a, In1, In2);
+
+    fp2_sub_batched(b, In1, In2);
+    prop_2(b);
+    prop_2(b+9);
+    b[0] = vaddq_u32(b[0], div5(b+8));
+    b[9] = vaddq_u32(b[9], div5(b+17));
+
+    for (int i=0; i<18; i++){
+        In1[i][0] = a[i][0];
+        In1[i][1] = b[i][0];
+        In1[i][2] = a[i][2];
+        In1[i][3] = b[i][2];
+
+        In2[i][0] = b[i][1];
+        In2[i][1] = a[i][1];
+        In2[i][2] = b[i][3];
+        In2[i][3] = a[i][3];
+    }
+    fp2_mul_batched(a, In1, In2); //r
+    
+    for (int i=0; i<18; i++){
+        In1[i][0] = a[i][0];
+        In1[i][1] = a[i][2];
+
+        In2[i][0] = a[i][1];
+        In2[i][1] = a[i][3];
+    }
+    fp2_add_batched(a, In1, In2);
+    fp2_sub_batched(b, In1, In2);
+    prop_2(b);
+    prop_2(b+9);
+    b[0] = vaddq_u32(b[0], div5(b+8));
+    b[9] = vaddq_u32(b[9], div5(b+17));
+
+    for (int i=0; i<18; i++){
+        In1[i][0] = a[i][0];
+        In1[i][1] = b[i][0];
+        In1[i][2] = a[i][1];
+        In1[i][3] = b[i][1];
+    }
+    fp2_sqr_batched(In1, In1); //3r
+
+    tp.x = PQ1->z;
+    tp.y = PQ1->x;
+    tp.z = PQ2->z;
+    tp.t = PQ2->x;
+    transpose(In2, tp);
+    fp2_mul_batched(a, In1, In2);
+    itranspose(&tp, a);
+    fp_t mb = {429496729, 0, 0, 0, 52776558133248};
+    theta_montback(&tp, &mb);
+    R1->x = tp.x;
+    R1->z = tp.y;
+    R2->x = tp.z;
+    R2->z = tp.t;
+}
+
 void
 xDBLADD(ec_point_t *R,
         ec_point_t *S,
@@ -498,8 +581,9 @@ xDBLMUL(ec_point_t *S,
         select_point(&T[2], &R[1], &R[2], maskk);
 
         cswap_points(&DIFF1a, &DIFF1b, maskk);
-        xADD(&T[1], &T[1], &T[2], &DIFF1a);
-        xADD(&T[2], &R[0], &R[2], &DIFF2a);
+        // xADD(&T[1], &T[1], &T[2], &DIFF1a);
+        // xADD(&T[2], &R[0], &R[2], &DIFF2a);
+        xADD2_vec(&T[1], &T[1], &T[2], &DIFF1a, &T[2], &R[0], &R[2], &DIFF2a);
 
         // If hw (mod 2) = 1 then swap DIFF2a and DIFF2b
         maskk = 0 - (h & 1);
