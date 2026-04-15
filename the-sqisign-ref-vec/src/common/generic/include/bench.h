@@ -47,6 +47,7 @@ cpucycles(void)
     return macos_rdtsc();
 #else
     uint64_t cycles;
+    asm volatile("isb");
     asm volatile("mrs %0, PMCCNTR_EL0" : "=r"(cycles));
     return cycles;
 #endif // __APPLE__

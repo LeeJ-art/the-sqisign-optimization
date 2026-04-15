@@ -107,8 +107,8 @@ main(int argc, char *argv[])
         randombytes_select((unsigned char *)seed, sizeof(seed));
     }
 
-    uint32_t setting[12] = {0x97026fa2, 0x004d92cc, 0x260c0b94, 0xb7280ee1, 0x24d75b4d, 0x9fbf8362, 0x11563bc1, 0x1f3194f8, 0xa7ace949, 0x31b7c6e7, 0x077e70ab, 0x61c78c32};
-    for (int i=0; i<12; i++) seed[i] = setting[i];
+    // uint32_t setting[12] = {0x97026fa2, 0x004d92cc, 0x260c0b94, 0xb7280ee1, 0x24d75b4d, 0x9fbf8362, 0x11563bc1, 0x1f3194f8, 0xa7ace949, 0x31b7c6e7, 0x077e70ab, 0x61c78c32};
+    // for (int i=0; i<12; i++) seed[i] = setting[i];
 
     print_seed(seed);
 

@@ -8,31 +8,31 @@ For example, here is our benchmark results for the Cortex-A76.
 **NIST I**
 | Algorithm | Ref | VQla | Improvement |
 |--------------|--------:|--------:|--------:|
-| KeyGen  |  72.37M |  28.98M| **2.49x**|
-| Sign    | 164.32M |  73.04M| **2.24x**|
-| Vefify  |  13.74M |   9.47M| **1.45x**|
+| KeyGen  | 170.59M |   69.45M| **2.46x**|
+| Sign    | 390.23M |  174.58M| **2.24x**|
+| Verify  |  32.93M |   23.23M| **1.42x**|
 
 **NIST III**
 | Algorithm | Ref | VQla | Improvement |
 |--------------|--------:|--------:|--------:|
-| KeyGen  |  206.84M |   98.51M| **2.10x**|
-| Sign    |  473.88M |  263.18M| **1.80x**|
-| Vefify  |   39.97M |   27.89M| **1.43x**|
+| KeyGen  |   494.15M |  233.46M| **2.12x**|
+| Sign    |  1132.27M |  620.84M| **1.82x**|
+| Verify  |    95.82M |   66.39M| **1.44x**|
 
 **NIST V**
 | Algorithm | Ref | VQla | Improvement |
 |--------------|--------:|--------:|--------:|
-| KeyGen  |  405.56M |  177.28M| **2.28x**|
-| Sign    |  275.41M |  472.99M| **1.99x**|
-| Vefify  |   85.12M |   60.12M| **1.41x**|
+| KeyGen  |  970.20M |  421.99M| **2.30x**|
+| Sign    | 2255.85M | 1156.70M| **1.95x**|
+| Verify  |  204.10M |  144.96M| **1.41x**|
 
 ## How to build and replicate our result
 ```
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release ..
+$ cmake -DSQISIGN_BUILD_TYPE=ref -DCMAKE_BUILD_TYPE=Release ..
 $ make
-$ ./apps/benchmark_lvl1 --iterations=1000
+$ taskset -c 0 ./apps/benchmark_lvl1 --iterations=1000
 ```
 
 # SQIsign C implementation using Qlapoti
